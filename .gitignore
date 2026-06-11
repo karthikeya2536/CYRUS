@@ -22,3 +22,20 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local environment variables
+.env
+.env.*
+!.env.example
+
+# Supabase transient directories
+supabase/.temp/*
+!supabase/.temp/cli-latest
+!supabase/.temp/linked-project.json
+supabase/.branches/
+
+# Local Claude settings
+.claude/
+
+
+
