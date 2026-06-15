@@ -23,37 +23,31 @@
 --     required, but included for clarity.
 -- ============================================
 
--- 1. Guard: ensure Vault secrets exist BEFORE scheduling the cron job.
---    Without these, net.http_post would call a broken URL with a missing
---    auth header — silently failing every minute with no diagnostic.
---    Fail the migration upfront so the operator sees the error.
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM vault.decrypted_secrets WHERE name = 'project_url'
-  ) THEN
-    RAISE EXCEPTION 'Vault secret "project_url" not found. '
-      'Create it before running this migration: '
-      'SELECT vault.create_secret(''https://<REF>.supabase.co'', ''project_url'');';
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM vault.decrypted_secrets WHERE name = 'worker_secret'
-  ) THEN
-    RAISE EXCEPTION 'Vault secret "worker_secret" not found. '
-      'Create it before running this migration: '
-      'SELECT vault.create_secret(''<your-secret>'', ''worker_secret'');';
-  END IF;
-END $$;
-
--- 2. Validate the project_url secret has the expected format. Catches the
---    failure mode where someone stores a placeholder like
---    'https://YOUR_PROJECT_REF.supabase.co' and the schedule silently
---    hits a non-existent host forever.
+-- 1. Conditional: if Vault secrets exist, validate and schedule. If not,
+--    log a NOTICE and skip. The schedule is activated later when the
+--    operator runs scripts/setup-worker.sql. This ensures the migration
+--    always passes on a clean database (supabase db reset).
 DO $$
 DECLARE
   v_url TEXT;
+  v_has_secrets BOOLEAN;
 BEGIN
+  -- Check if Vault secrets exist
+  v_has_secrets := EXISTS (
+    SELECT 1 FROM vault.decrypted_secrets WHERE name = 'project_url'
+  ) AND EXISTS (
+    SELECT 1 FROM vault.decrypted_secrets WHERE name = 'worker_secret'
+  );
+
+  IF NOT v_has_secrets THEN
+    RAISE NOTICE 'Vault secrets not found. '
+      'The llm-worker cron schedule will not be created. '
+      'Run scripts/setup-worker.sql after migration to provision secrets '
+      'and enable the scheduler.';
+    RETURN;
+  END IF;
+
+  -- Validate project_url format
   SELECT decrypted_secret INTO v_url
     FROM vault.decrypted_secrets WHERE name = 'project_url';
 
@@ -73,16 +67,8 @@ BEGIN
     RAISE WARNING 'Vault secret "project_url" does not match expected pattern '
       'https://<ref>.supabase.co — value: %. Verify this is correct.', v_url;
   END IF;
-END $$;
 
--- 3. Schedule the worker drain (guarded for pg_cron availability).
---    Matches the established pattern in 019_retrieval_observability.sql.
---    The unschedule is defensive — cron.schedule(job_name, ...) replaces
---    an existing named job, making it idempotent. But explicitly removing
---    prior state first makes the intent clear and protects against any
---    future pg_cron behavior change.
-DO $$
-BEGIN
+  -- Check pg_cron availability
   PERFORM 1 FROM pg_extension WHERE extname = 'pg_cron';
   IF NOT FOUND THEN
     RAISE NOTICE 'pg_cron not installed; llm-worker will not be scheduled '
@@ -91,9 +77,7 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Defensive: remove any prior schedule. cron.unschedule(text) returns false
-  -- when the job does not exist. The EXCEPTION handler guards the rare
-  -- cross-user edge case where it raises instead.
+  -- Defensive: remove any prior schedule
   BEGIN
     PERFORM cron.unschedule('llm-worker-drain');
   EXCEPTION WHEN OTHERS THEN

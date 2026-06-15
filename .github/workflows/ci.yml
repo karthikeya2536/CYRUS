@@ -70,6 +70,12 @@ jobs:
         run: supabase start
       - name: Fresh reset (strict ordered re-apply of all migrations)
         run: supabase db reset
+      - name: Provision Vault secrets and enable worker schedule
+        run: |
+          PGPASSWORD=postgres psql -h localhost -p 54322 -U postgres -d postgres \
+            -v project_url='http://host.docker.internal:54321' \
+            -v worker_secret='ci-worker-secret' \
+            -f scripts/setup-worker.sql
       - name: Run retrieval validation scripts
         run: |
           for script in scripts/validate-dedup.sql scripts/validate-graph.sql; do
