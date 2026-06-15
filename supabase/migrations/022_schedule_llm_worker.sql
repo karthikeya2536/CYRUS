@@ -6,31 +6,20 @@
 -- retry logic, optimistic locking, dead-letter behavior, and producer
 -- functions are ALL UNCHANGED. This migration adds only a schedule.
 --
--- Pre-deploy requirements (see DEPLOYMENT.md):
---   1. supabase_vault extension enabled in Dashboard.
---   2. pg_cron extension enabled in Dashboard (Pro plan+; Free plan requires
---      upgrade or manual via Integrations -> Cron).
---   3. Two Vault secrets created via SQL editor:
---        SELECT vault.create_secret('https://<REF>.supabase.co', 'project_url');
---        SELECT vault.create_secret('<your-chosen-secret>', 'worker_secret');
---   4. Edge Function env synced:
---        supabase secrets set WORKER_SECRET=<same-value-as-worker_secret>
---
 -- DESIGN NOTES:
 --   - pg_cron is NOT CREATE EXTENSION here. On hosted Supabase the platform
 --     manages pg_cron; trying CREATE EXTENSION can fail or duplicate the
 --     schema. Instead, we check pg_extension like migration 019 does.
---   - pg_net requires no migration action — it is pre-installed by Supabase.
---   - Vault secrets are NOT auto-generated or hardcoded. They must be set per
---     environment. An auto-generated value cannot be synced back to the
---     Edge Function env (no read path from Vault to env var).
---   - No BEGIN/COMMIT — Supabase CLI wraps migrations in its own transaction.
+--   - pg_net requires no migration action -- it is pre-installed by Supabase.
+--   - Vault secrets are NOT auto-generated or hardcoded. They must be
+--     provisioned per environment via scripts/setup-worker.sql.
+--   - No BEGIN/COMMIT -- Supabase CLI wraps migrations in its own transaction.
 --   - cron.unschedule(text) returns BOOLEAN (true if removed, false if not
 --     found). It raises "could not find valid entry" only when called by a
 --     different PostgreSQL user than the one who created the job. The
 --     EXCEPTION handler guards this cross-user edge case.
---   - cron.schedule(job_name, ...) is itself idempotent — it replaces an
---     existing named job — so the prior unschedule is defensive, not
+--   - cron.schedule(job_name, ...) is itself idempotent -- it replaces an
+--     existing named job -- so the prior unschedule is defensive, not
 --     required, but included for clarity.
 -- ============================================
 
