@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: npm build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+
+  deno-check:
+    name: deno check edge functions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v2.x
+      - name: Type-check every edge function
+        run: |
+          set -e
+          fail=0
+          for d in supabase/functions/*/; do
+            f="$d/index.ts"
+            [ -f "$f" ] || continue
+            echo "::group::deno check $f"
+            if ! deno check "$f"; then fail=1; fi
+            echo "::endgroup::"
+          done
+          exit $fail
+
+  migrations:
+    name: migration validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Boot local stack (applies migrations)
+        run: supabase start
+      - name: Fresh reset (strict ordered re-apply of all migrations)
+        run: supabase db reset
+      - name: Stop stack
+        if: always()
+        run: supabase stop || true

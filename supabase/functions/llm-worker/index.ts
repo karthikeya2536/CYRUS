@@ -3,6 +3,34 @@ import { crypto } from "https://deno.land/std@0.177.0/crypto/mod.ts";
 import { encode } from "https://deno.land/std@0.177.0/encoding/hex.ts";
 import { LLMRouter, supabaseAdmin } from "../_shared/llm-router.ts";
 import { PROMPTS } from "../_shared/prompts.ts";
+import { getUserPlan, PLAN_LIMITS } from "../_shared/plans.ts";
+import { createLogger, newRequestId } from "../_shared/log.ts";
+
+// Hard cap on how many jobs a single worker invocation will process, so one run
+// can never loop unbounded. The worker is invoked repeatedly by the scheduler.
+const MAX_JOBS_PER_RUN = 5;
+
+// Phase 14 dedup: cosine-distance threshold (0 = identical). A candidate within
+// this distance of an existing same-category memory is sent to LLM adjudication.
+// Configurable via env; defaults to 0.15 (very similar).
+const DEDUP_DISTANCE_THRESHOLD = parseFloat(Deno.env.get("DEDUP_DISTANCE_THRESHOLD") ?? "0.15");
+
+// Phase 16: lightweight, deterministic entity extraction for the retrieval
+// graph. Pulls capitalized proper-noun-like tokens/phrases from memory content.
+const ENTITY_STOPWORDS = new Set(["The", "A", "An", "This", "That", "These", "Those", "I", "You", "We", "They", "It", "Project"]);
+function extractEntities(text: string): string[] {
+  const out = new Set<string>();
+  const matches = text.match(/\b[A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*\b/g) || [];
+  for (const m of matches) {
+    const t = m.trim();
+    if (t.length >= 2 && !ENTITY_STOPWORDS.has(t)) out.add(t);
+    if (out.size >= 10) break;
+  }
+  return [...out];
+}
+
+// Module-level logger for processing helpers (no request scope available there).
+const workerLog = createLogger("llm-worker", "worker");
 
 function normalizeKey(str: string) {
   return str.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -72,16 +100,32 @@ async function processMemoryExtraction(job: any) {
   
   const { data: emails } = await supabaseAdmin.from("emails").select("*").eq("user_id", user_id).order("received_at", { ascending: false }).limit(50);
   const { data: events } = await supabaseAdmin.from("calendar_events").select("*").eq("user_id", user_id).gte("start_time", new Date().toISOString()).limit(50);
+  const { data: slackMessages } = await supabaseAdmin.from("slack_messages").select("*").eq("user_id", user_id).order("posted_at", { ascending: false }).limit(50);
+  const { data: notionPages } = await supabaseAdmin.from("notion_pages").select("*").eq("user_id", user_id).order("last_edited_at", { ascending: false }).limit(50);
 
   const emailPayload = (emails || []).map(e => `ID:${e.gmail_message_id}\nFrom:${e.sender}\nSubj:${e.subject}\nBody:${e.snippet}`).join('\n---\n');
   const eventPayload = (events || []).map(e => `ID:${e.google_event_id}\nTitle:${e.title}\nTime:${e.start_time}`).join('\n---\n');
+  const slackPayload = (slackMessages || []).map(m => `ID:${m.slack_ts}\nChannel:${m.channel_name || m.channel_id}\nAuthor:${m.author}\nText:${m.text}`).join('\n---\n');
+  const notionPayload = (notionPages || []).map(p => `ID:${p.notion_page_id}\nTitle:${p.title}\nContent:${p.content}`).join('\n---\n');
+
+  // Plan storage cap: stop inserting new memories past the plan's limit.
+  const plan = await getUserPlan(supabaseAdmin, user_id);
+  const memoryCap = PLAN_LIMITS[plan].memoryRecordsMax;
+  let memoryCount = 0;
+  if (memoryCap !== null) {
+    const { count } = await supabaseAdmin
+      .from("memory_records")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user_id);
+    memoryCount = count || 0;
+  }
 
   let memoriesToVerify: any[] = [];
   let extractorProvider = '';
 
   const extractResult = await LLMRouter.execute({
     systemPrompt: PROMPTS.MEMORY_EXTRACTION_SYSTEM,
-    userPrompt: `Emails:\n${emailPayload}\n\nEvents:\n${eventPayload}`,
+    userPrompt: `Emails:\n${emailPayload}\n\nEvents:\n${eventPayload}\n\nSlack Messages:\n${slackPayload}\n\nNotion Pages:\n${notionPayload}`,
     expectedFormat: 'json'
   });
 
@@ -96,7 +140,7 @@ async function processMemoryExtraction(job: any) {
       if (match) jsonStr = match[0];
       memoriesToVerify = JSON.parse(jsonStr);
     } catch (e) {
-      console.error("Failed to parse extractor JSON, falling back to rules", e);
+      workerLog.warn("extractor_json_parse_failed_fallback_rules");
       memoriesToVerify = ruleBasedExtraction(emails || [], events || []);
       extractorProvider = 'rule-engine';
     }
@@ -173,7 +217,7 @@ async function processMemoryExtraction(job: any) {
             }
           }
         } catch (e) {
-          console.error("Failed to parse verifier JSON", e);
+          workerLog.warn("verifier_json_parse_failed");
           finalDecision = 'APPROVE';
         }
       }
@@ -212,34 +256,128 @@ async function processMemoryExtraction(job: any) {
           updated++;
         }
       } else {
-        const { data: newMem, error: memErr } = await supabaseAdmin.from("memory_records").insert({
-          user_id,
-          category: mem.category,
-          content: finalContent,
-          memory_key,
-          source_type: mem.source_type || 'unknown',
-          source_id: mem.source_id || 'unknown',
-          source_hash,
-          confidence_score: finalConfidence,
-          llm_provider: extractorProvider,
-          verifier_provider: verifierProvider,
-          verified: true,
-          verification_score: finalConfidence,
-          evidence: mem.evidence || [],
-          source_excerpt: mem.source_excerpt || '',
-          expires_at: finalExpiresAt,
-          llm_importance: finalLlmImportance,
-          system_importance: finalSystemImportance
-        }).select('id').single();
+        // Enforce plan storage cap on new memories (updates above are exempt).
+        if (memoryCap !== null && memoryCount >= memoryCap) {
+          continue;
+        }
 
-        if (!memErr && newMem) {
-          inserted++;
-          await supabaseAdmin.from("llm_jobs").insert({
+        // ---- Phase 14: safe semantic de-duplication ----
+        // Embed the candidate, then search the SAME category for near matches.
+        // If the LLM confirms a duplicate, merge into the canonical row
+        // (increment only, never overwrite) and record an audit row. Never
+        // deletes, never overwrites, never crosses categories.
+        let dedupEmbedding: number[] | null = null;
+        try {
+          const emb = await LLMRouter.generateEmbedding(`${mem.category}: ${finalContent}`);
+          if (Array.isArray(emb) && emb.length > 0) dedupEmbedding = emb;
+        } catch (_e) {
+          workerLog.warn("dedup_embedding_failed");
+        }
+
+        let merged = false;
+        if (dedupEmbedding) {
+          try {
+            const { data: candidates } = await supabaseAdmin.rpc("match_memory_candidates", {
+              p_user_id: user_id,
+              p_category: mem.category,
+              query_embedding: `[${dedupEmbedding.join(",")}]`,
+              match_count: 5,
+            });
+            const top = (candidates || []).find((c: any) => c.distance <= DEDUP_DISTANCE_THRESHOLD);
+            if (top) {
+              let isDuplicate = false;
+              let adjudicator = "threshold";
+              const adj = await LLMRouter.execute({
+                systemPrompt: PROMPTS.MEMORY_DEDUP_SYSTEM,
+                userPrompt: `Category: ${mem.category}\nExisting memory: "${top.content}"\nNew candidate: "${finalContent}"`,
+                expectedFormat: "json",
+              });
+              adjudicator = adj.provider;
+              if (adj.provider === "rule-engine") {
+                // No LLM available: fall back to the distance threshold alone.
+                isDuplicate = true;
+              } else {
+                try {
+                  const m = adj.content.match(/\{.*\}/s);
+                  const j = JSON.parse(m ? m[0] : adj.content);
+                  isDuplicate = j.is_duplicate === true;
+                } catch (_e) {
+                  isDuplicate = false;
+                }
+              }
+
+              if (isDuplicate) {
+                // Merge: increment the canonical row only.
+                await supabaseAdmin.from("memory_records").update({
+                  occurrence_count: top.occurrence_count + 1,
+                  confidence_score: Math.min(100, top.confidence_score + 5),
+                  last_seen_at: new Date().toISOString(),
+                }).eq("id", top.id);
+                await supabaseAdmin.from("memory_merge_audit").insert({
+                  user_id,
+                  canonical_id: top.id,
+                  category: mem.category,
+                  duplicate_content: finalContent,
+                  duplicate_source_id: mem.source_id || "unknown",
+                  similarity_distance: top.distance,
+                  decision: "merged",
+                  adjudicator,
+                });
+                merged = true;
+                updated++;
+              }
+            }
+          } catch (_e) {
+            workerLog.warn("dedup_candidate_search_failed");
+          }
+        }
+
+        if (!merged) {
+          const { data: newMem, error: memErr } = await supabaseAdmin.from("memory_records").insert({
             user_id,
-            job_type: "generate_embedding",
-            priority: 3,
-            payload: { table: "memory_records", id: newMem.id, content: `${mem.category}: ${finalContent}` }
-          });
+            category: mem.category,
+            content: finalContent,
+            memory_key,
+            source_type: mem.source_type || 'unknown',
+            source_id: mem.source_id || 'unknown',
+            source_hash,
+            confidence_score: finalConfidence,
+            llm_provider: extractorProvider,
+            verifier_provider: verifierProvider,
+            verified: true,
+            verification_score: finalConfidence,
+            evidence: mem.evidence || [],
+            source_excerpt: mem.source_excerpt || '',
+            expires_at: finalExpiresAt,
+            llm_importance: finalLlmImportance,
+            system_importance: finalSystemImportance,
+            // Reuse the embedding we already computed for dedup when available,
+            // avoiding a second embedding job.
+            ...(dedupEmbedding ? { embedding: dedupEmbedding } : {}),
+          }).select('id').single();
+
+          if (!memErr && newMem) {
+            inserted++;
+            memoryCount++;
+            // Phase 16: record entity mentions for graph traversal (best-effort).
+            const entities = extractEntities(finalContent);
+            if (entities.length) {
+              await supabaseAdmin.from("entity_mentions")
+                .upsert(
+                  entities.map((e) => ({ user_id, memory_id: newMem.id, entity: e })),
+                  { onConflict: "user_id,memory_id,entity", ignoreDuplicates: true },
+                );
+            }
+            // Only enqueue an embedding job if we could not embed inline.
+            if (!dedupEmbedding) {
+              await supabaseAdmin.from("llm_jobs").insert({
+                user_id,
+                job_type: "generate_embedding",
+                priority: 3,
+                payload: { table: "memory_records", id: newMem.id, content: `${mem.category}: ${finalContent}` }
+              });
+            }
+          }
         }
       }
     }
@@ -299,9 +437,25 @@ async function processBriefingGeneration(job: any) {
     .order("confidence_score", { ascending: false })
     .limit(20);
 
+  const { data: slackMessages } = await supabaseAdmin
+    .from("slack_messages")
+    .select("*")
+    .eq("user_id", user_id)
+    .order("posted_at", { ascending: false })
+    .limit(10);
+
+  const { data: notionPages } = await supabaseAdmin
+    .from("notion_pages")
+    .select("*")
+    .eq("user_id", user_id)
+    .order("last_edited_at", { ascending: false })
+    .limit(10);
+
   const emailPayload = (emails || []).map(e => `From:${e.sender}\nSubj:${e.subject}\nBody:${e.snippet}`).join('\n---\n');
   const eventPayload = (events || []).map(e => `Title:${e.title}\nTime:${e.start_time}`).join('\n---\n');
   const memoryPayload = (memories || []).map(m => `[${m.category}] ${m.content} (Conf: ${m.confidence_score})`).join('\n');
+  const slackPayload = (slackMessages || []).map(m => `Channel:${m.channel_name || m.channel_id}\nAuthor:${m.author}\nText:${m.text}`).join('\n---\n');
+  const notionPayload = (notionPages || []).map(p => `Title:${p.title}\nContent:${p.content}`).join('\n---\n');
 
   let finalBriefing = "";
   let generatorProvider = "rule-engine";
@@ -310,7 +464,7 @@ async function processBriefingGeneration(job: any) {
 
   const draftResult = await LLMRouter.execute({
     systemPrompt: PROMPTS.BRIEFING_DRAFT_SYSTEM,
-    userPrompt: `Emails:\n${emailPayload}\n\nEvents:\n${eventPayload}\n\nMemories:\n${memoryPayload}`
+    userPrompt: `Emails:\n${emailPayload}\n\nEvents:\n${eventPayload}\n\nSlack Messages:\n${slackPayload}\n\nNotion Pages:\n${notionPayload}\n\nMemories:\n${memoryPayload}`
   });
 
   generatorProvider = draftResult.provider;
@@ -340,7 +494,7 @@ async function processBriefingGeneration(job: any) {
         generation_metadata.checklist = vData.checklist;
         finalBriefing = vData.final_briefing_markdown || draftResult.content;
       } catch (e) {
-        console.error("Verifier JSON parse failed", e);
+        workerLog.warn("briefing_verifier_json_parse_failed");
         finalBriefing = draftResult.content;
       }
     }
@@ -368,85 +522,120 @@ async function processBriefingGeneration(job: any) {
 }
 
 serve(async (req: Request) => {
-  // This endpoint can be hit by pg_cron or manually
-  try {
-    // 1. Fetch one pending job
-    const { data: jobs, error: fetchErr } = await supabaseAdmin
-      .from("llm_jobs")
-      .select("*")
-      .eq("status", "pending")
-      .order("priority", { ascending: true })
-      .order("created_at", { ascending: true })
-      .limit(1);
+  // Worker is invoked by pg_cron / trusted schedulers only — require a shared secret.
+  const workerSecret = Deno.env.get("WORKER_SECRET");
+  if (!workerSecret || req.headers.get("x-worker-secret") !== workerSecret) {
+    return new Response("Unauthorized", { status: 401 });
+  }
 
-    if (fetchErr) throw fetchErr;
-    if (!jobs || jobs.length === 0) {
+  const requestId = newRequestId();
+  const log = createLogger("llm-worker", requestId);
+
+  try {
+    // 0. Reclaim jobs stuck in "processing" from a crashed worker so they retry.
+    const staleCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    await supabaseAdmin
+      .from("llm_jobs")
+      .update({ status: "pending" })
+      .eq("status", "processing")
+      .lt("started_at", staleCutoff);
+
+    let processed = 0;
+    const completed: string[] = [];
+
+    while (processed < MAX_JOBS_PER_RUN) {
+      // 1. Fetch one pending job
+      const { data: jobs, error: fetchErr } = await supabaseAdmin
+        .from("llm_jobs")
+        .select("*")
+        .eq("status", "pending")
+        .order("priority", { ascending: true })
+        .order("created_at", { ascending: true })
+        .limit(1);
+
+      if (fetchErr) throw fetchErr;
+      if (!jobs || jobs.length === 0) break;
+
+      const job = jobs[0];
+
+      // 2. Mark as processing (optimistic locking)
+      const { data: updatedJob, error: updateErr } = await supabaseAdmin
+        .from("llm_jobs")
+        .update({
+          status: "processing",
+          started_at: new Date().toISOString(),
+          attempts: job.attempts + 1
+        })
+        .eq("id", job.id)
+        .eq("status", "pending")
+        .select()
+        .single();
+
+      if (updateErr || !updatedJob) {
+        // Job was taken by another worker; try the next one.
+        continue;
+      }
+
+      processed++;
+      // Continue the request_id chain from the enqueuing function when present.
+      const jobRequestId = updatedJob.payload?.request_id || requestId;
+      const jobLog = createLogger("llm-worker", jobRequestId);
+
+      try {
+        let resultData = null;
+        if (updatedJob.job_type === "memory_extraction") {
+          resultData = await processMemoryExtraction(updatedJob);
+        } else if (updatedJob.job_type === "briefing_generation") {
+          resultData = await processBriefingGeneration(updatedJob);
+        } else if (updatedJob.job_type === "generate_embedding") {
+          resultData = await processGenerateEmbedding(updatedJob);
+        } else {
+          throw new Error(`Unknown job type: ${updatedJob.job_type}`);
+        }
+
+        // 3. Mark completed
+        await supabaseAdmin
+          .from("llm_jobs")
+          .update({
+            status: "completed",
+            completed_at: new Date().toISOString(),
+            result: resultData
+          })
+          .eq("id", updatedJob.id);
+
+        completed.push(updatedJob.id);
+
+      } catch (jobErr: any) {
+        jobLog.error("job_processing_failed", { job_id: updatedJob.id, job_type: updatedJob.job_type });
+
+        // Dead-letter once attempts exhaust max_attempts; otherwise re-queue.
+        const isPermanent = updatedJob.attempts >= updatedJob.max_attempts;
+
+        await supabaseAdmin
+          .from("llm_jobs")
+          .update({
+            status: isPermanent ? "permanently_failed" : "pending",
+            last_error: jobErr.message || String(jobErr),
+            result: { error: jobErr.message || String(jobErr) }
+          })
+          .eq("id", updatedJob.id);
+
+        if (isPermanent) {
+          jobLog.error("job_dead_lettered", { job_id: updatedJob.id });
+        }
+        // Stop this run on failure so a failing job can't spin the loop.
+        break;
+      }
+    }
+
+    if (processed === 0) {
       return new Response("No pending jobs", { status: 200 });
     }
 
-    const job = jobs[0];
+    return new Response(JSON.stringify({ success: true, processed, completed }), { status: 200 });
 
-    // 2. Mark as processing (optimistic locking)
-    const { data: updatedJob, error: updateErr } = await supabaseAdmin
-      .from("llm_jobs")
-      .update({ 
-        status: "processing", 
-        started_at: new Date().toISOString(),
-        attempts: job.attempts + 1
-      })
-      .eq("id", job.id)
-      .eq("status", "pending")
-      .select()
-      .single();
-
-    if (updateErr || !updatedJob) {
-      return new Response("Job taken by another worker", { status: 200 });
-    }
-
-    let resultData = null;
-
-    try {
-      if (updatedJob.job_type === "memory_extraction") {
-        resultData = await processMemoryExtraction(updatedJob);
-      } else if (updatedJob.job_type === "briefing_generation") {
-        resultData = await processBriefingGeneration(updatedJob);
-      } else if (updatedJob.job_type === "generate_embedding") {
-        resultData = await processGenerateEmbedding(updatedJob);
-      } else {
-        throw new Error(`Unknown job type: ${updatedJob.job_type}`);
-      }
-
-      // 3. Mark completed
-      await supabaseAdmin
-        .from("llm_jobs")
-        .update({
-          status: "completed",
-          completed_at: new Date().toISOString(),
-          result: resultData
-        })
-        .eq("id", updatedJob.id);
-
-      return new Response(JSON.stringify({ success: true, job_id: updatedJob.id }), { status: 200 });
-
-    } catch (jobErr: any) {
-      console.error(`Error processing job ${updatedJob.id}:`, jobErr);
-      
-      const isPermanent = updatedJob.attempts >= updatedJob.max_attempts;
-      
-      await supabaseAdmin
-        .from("llm_jobs")
-        .update({
-          status: isPermanent ? "permanently_failed" : "pending",
-          last_error: jobErr.message || String(jobErr),
-          result: { error: jobErr.message || String(jobErr) }
-        })
-        .eq("id", updatedJob.id);
-
-      return new Response(JSON.stringify({ error: jobErr.message }), { status: 500 });
-    }
-
-  } catch (err: any) {
-    console.error("Worker Error:", err);
-    return new Response(`Internal error: ${err.message}`, { status: 500 });
+  } catch (_err: any) {
+    log.error("worker_error");
+    return new Response("Internal server error", { status: 500 });
   }
 });

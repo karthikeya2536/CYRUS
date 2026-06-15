@@ -1,0 +1,54 @@
+name: Rollback
+
+# Manual rollback. Redeploys edge functions from a previous known-good git ref
+# (fast revert of function code), and optionally repairs the migration history
+# to an earlier version.
+#
+# DB SCHEMA NOTE: migrations have no auto-runnable down files. To revert schema,
+# apply the commented "ROLLBACK" block at the bottom of the relevant migration
+# via the Supabase SQL editor, then run this workflow with `target_migration`
+# set so the migration history matches.
+#
+# Requires the same secrets as deploy.yml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref (tag/SHA) to redeploy edge functions from'
+        required: true
+      target_migration:
+        description: 'Optional: migration version to repair history to (e.g. 020). Leave blank to skip.'
+        required: false
+        default: ''
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    name: redeploy prior functions
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link project
+        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+
+      - name: Redeploy edge functions at chosen ref
+        run: supabase functions deploy
+
+      - name: Repair migration history (optional)
+        if: ${{ github.event.inputs.target_migration != '' }}
+        run: supabase migration repair --status reverted "${{ github.event.inputs.target_migration }}"

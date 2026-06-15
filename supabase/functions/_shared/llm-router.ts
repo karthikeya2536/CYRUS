@@ -189,8 +189,8 @@ export class LLMRouter {
           await this.updateProviderHealth(currentProvider, 'failure');
         }
 
-        // Exclude the failed provider and try the next one
-        excludedProviders.push(currentProvider);
+        // Exclude the failed provider and try the next one (no caller-array mutation)
+        excludedProviders = [...excludedProviders, currentProvider];
         currentProvider = await this.getAvailableProvider(excludedProviders);
       }
     }
@@ -211,9 +211,6 @@ export class LLMRouter {
    * NOTE: Do NOT hard-require 768 dimensions; providers may return different dimensions.
    */
     public static async generateEmbedding(text: string): Promise<number[]> {
-    console.log("GEMINI KEY EXISTS:", !!Deno.env.get("GEMINI_API_KEY"));
-    console.log("NVIDIA KEY EXISTS:", !!Deno.env.get("NVIDIA_API_KEY"));
-
     try {
       // Primary: Gemini
       // FIX 1: Use text-embedding-004 and explicitly request 768 dimensions
@@ -232,9 +229,7 @@ export class LLMRouter {
 
       if (res.ok) {
         const data = await res.json();
-        console.log("Gemini response:", JSON.stringify(data));
         const embedding = data?.embedding?.values;
-        console.log("Gemini dimensions:", embedding ? embedding.length : "none");
         if (embedding && embedding.length === 768) return embedding;
       } else {
         console.error("Gemini embedding error response:", await res.text());
@@ -266,9 +261,7 @@ export class LLMRouter {
 
       if (res.ok) {
         const data = await res.json();
-        console.log("NVIDIA response:", JSON.stringify(data));
         const embedding = data?.data?.[0]?.embedding;
-        console.log("NVIDIA dimensions:", embedding ? embedding.length : "none");
         if (embedding && embedding.length === 768) return embedding;
       } else {
         console.error("NVIDIA NIM embedding error response:", await res.text());

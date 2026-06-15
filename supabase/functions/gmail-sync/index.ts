@@ -1,17 +1,10 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildCorsHeaders } from "../_shared/cors.ts";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
+import { createLogger, newRequestId } from "../_shared/log.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-function jsonResponse(body: Record<string, unknown>, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
+const RATE_LIMIT_PER_MIN = 10;
 
 // Helper to decode base64url string
 function decodeBase64Url(str: string) {
@@ -63,6 +56,17 @@ function getMessageBody(payload: any): string {
 }
 
 serve(async (req: Request) => {
+  const corsHeaders = buildCorsHeaders(req);
+  const requestId = newRequestId();
+  const log = createLogger("gmail-sync", requestId);
+
+  function jsonResponse(body: Record<string, unknown>, status = 200) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -94,6 +98,11 @@ serve(async (req: Request) => {
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
+    const rl = await checkRateLimit(supabaseAdmin, user.id, "gmail-sync", RATE_LIMIT_PER_MIN);
+    if (rl.limited) {
+      return jsonResponse({ error: "Rate limit exceeded. Try again shortly." }, 429);
+    }
+
     // Get integration secrets
     const { data: secretData, error: secretErr } = await supabaseAdmin
       .from("integration_secrets")
@@ -120,7 +129,7 @@ serve(async (req: Request) => {
     // Refresh token logic
     if (isExpired || !accessToken) {
       if (!secretData.refresh_token) {
-        console.log("TOKEN_REFRESH_FAILED");
+        log.warn("TOKEN_REFRESH_FAILED");
         await supabaseAdmin.from("connected_accounts").update({ status: 'broken' }).eq('user_id', user.id).eq('provider', 'google');
         return jsonResponse({ error: "Token expired and no refresh token available. Reconnect required." }, 401);
       }
@@ -139,14 +148,14 @@ serve(async (req: Request) => {
       let tokenData;
       try {
         tokenData = await tokenResponse.json();
-      } catch (e) {
-        console.log("TOKEN_REFRESH_FAILED", e);
+      } catch (_e) {
+        log.warn("TOKEN_REFRESH_FAILED");
         await supabaseAdmin.from("connected_accounts").update({ status: 'broken' }).eq('user_id', user.id).eq('provider', 'google');
         return jsonResponse({ error: "Refresh failed: Unparseable response from Google." }, 401);
       }
 
       if (!tokenResponse.ok || tokenData.error || !tokenData.access_token) {
-        console.log("TOKEN_REFRESH_FAILED");
+        log.warn("TOKEN_REFRESH_FAILED");
         await supabaseAdmin.from("connected_accounts").update({ status: 'broken' }).eq('user_id', user.id).eq('provider', 'google');
         return jsonResponse({ error: `Refresh failed: ${tokenData.error_description || tokenData.error || "Missing access token"}` }, 401);
       }
@@ -156,16 +165,27 @@ serve(async (req: Request) => {
         ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
         : null;
 
-      // Update secrets with new access token
-      await supabaseAdmin.from("integration_secrets").update({
-        access_token: accessToken,
-        token_expires_at: tokenExpiresAt,
-        updated_at: new Date().toISOString()
-      }).eq('id', secretData.id);
+      // Update secrets with new access token. If this write fails we must NOT
+      // continue as if connected: mark the account broken and abort so the
+      // account is never left "active" with a stale/unwritten token.
+      const { error: secretUpdateErr } = await supabaseAdmin
+        .from("integration_secrets")
+        .update({
+          access_token: accessToken,
+          token_expires_at: tokenExpiresAt,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', secretData.id);
 
-      console.log("TOKEN_REFRESHED");
+      if (secretUpdateErr) {
+        log.error("TOKEN_PERSIST_FAILED");
+        await supabaseAdmin.from("connected_accounts").update({ status: 'broken' }).eq('user_id', user.id).eq('provider', 'google');
+        return jsonResponse({ error: "Failed to persist refreshed token." }, 500);
+      }
+
+      log.info("TOKEN_REFRESHED");
     } else {
-      console.log("TOKEN_VALID");
+      log.info("TOKEN_VALID");
     }
 
     // Call Gmail API
@@ -246,8 +266,8 @@ serve(async (req: Request) => {
         }, { onConflict: "user_id,gmail_message_id" });
 
         syncedCount++;
-      } catch (err) {
-        console.error(`Failed to upsert email ${msgDetail.id}:`, err);
+      } catch (_err) {
+        log.error("email_upsert_failed");
         // Continue syncing other emails
       }
     }
@@ -260,7 +280,8 @@ serve(async (req: Request) => {
 
     return jsonResponse({ success: true, syncedCount });
 
-  } catch (err) {
-    return jsonResponse({ error: `Internal error: ${err.message}` }, 500);
+  } catch (_err) {
+    log.error("unhandled error");
+    return jsonResponse({ error: "Internal server error" }, 500);
   }
 });

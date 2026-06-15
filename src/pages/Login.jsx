@@ -6,50 +6,84 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setSubmitting(true);
     try {
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: '400px', margin: '0 auto', padding: '2rem' }}>
-      <h1>Login</h1>
-      {error && <div style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <div>
-          <label>Email</label><br />
-          <input 
-            type="email" 
-            value={email} 
-            onChange={e => setEmail(e.target.value)} 
-            required 
-            style={{ width: '100%', padding: '0.5rem' }}
-          />
+    <div className="auth-screen">
+      <div className="auth-card">
+        <div className="brand">
+          <span className="brand-mark" aria-hidden="true">
+            C
+          </span>
+          <span>Cyrus</span>
         </div>
-        <div>
-          <label>Password</label><br />
-          <input 
-            type="password" 
-            value={password} 
-            onChange={e => setPassword(e.target.value)} 
-            required 
-            style={{ width: '100%', padding: '0.5rem' }}
-          />
-        </div>
-        <button type="submit" style={{ padding: '0.5rem' }}>Login</button>
-      </form>
-      <p style={{ marginTop: '1rem' }}>
-        Don't have an account? <Link to="/signup">Sign up</Link>
-      </p>
+        <h1>Welcome back</h1>
+        <p className="auth-subtitle">Sign in to your account to continue.</p>
+
+        {error && (
+          <div className="inline-error" role="alert" style={{ marginBottom: 'var(--space-4)' }}>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="stack">
+          <div className="field">
+            <label className="label" htmlFor="login-email">
+              Email
+            </label>
+            <input
+              id="login-email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div className="field">
+            <label className="label" htmlFor="login-password">
+              Password
+            </label>
+            <input
+              id="login-password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+          <button type="submit" className="btn btn-primary btn-block" disabled={submitting}>
+            {submitting ? (
+              <>
+                <span className="spinner" aria-hidden="true" /> Signing in…
+              </>
+            ) : (
+              'Sign in'
+            )}
+          </button>
+        </form>
+
+        <p className="auth-footer">
+          Don&apos;t have an account? <Link to="/signup">Sign up</Link>
+        </p>
+      </div>
     </div>
   );
 }

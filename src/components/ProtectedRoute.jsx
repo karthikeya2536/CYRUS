@@ -5,7 +5,13 @@ export function ProtectedRoute({ children }) {
   const { session, loading } = useAuth();
 
   if (loading) {
-    return <div>Loading session...</div>;
+    return (
+      <div className="auth-screen">
+        <p className="muted">
+          <span className="spinner" aria-hidden="true" /> Loading session…
+        </p>
+      </div>
+    );
   }
 
   if (!session) {

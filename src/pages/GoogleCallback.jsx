@@ -31,20 +31,15 @@ export default function GoogleCallback() {
         return;
       }
 
-      const storedState = window.localStorage.getItem('google_oauth_state');
-      if (!storedState || state !== storedState) {
-        setError('OAuth state mismatch. Please try connecting Google again.');
-        return;
-      }
-
       if (code === lastCodeRun) return;
       lastCodeRun = code;
 
       try {
         const redirectUri = `${window.location.origin}/auth/google/callback`;
 
+        // Server validates state before token exchange
         const { data, error: fnError } = await supabase.functions.invoke('google-oauth-exchange', {
-          body: { code, redirect_uri: redirectUri },
+          body: { code, redirect_uri: redirectUri, state },
         });
 
         if (fnError) {
@@ -61,9 +56,6 @@ export default function GoogleCallback() {
           return;
         }
 
-        // One-time use: clear state after successful exchange
-        window.localStorage.removeItem('google_oauth_state');
-
         navigate('/dashboard', { replace: true });
       } catch (err) {
         setError(`Unexpected error: ${err?.message || String(err)}`);
@@ -76,22 +68,33 @@ export default function GoogleCallback() {
 
   if (error) {
     return (
-      <div style={{ maxWidth: '500px', margin: '0 auto', padding: '2rem' }}>
-        <h1>Connection Failed</h1>
-        <p style={{ color: 'red' }}>{error}</p>
-        <button
-          onClick={() => navigate('/dashboard')}
-          style={{ padding: '0.5rem 1rem', marginTop: '1rem' }}
-        >
-          Back to Dashboard
-        </button>
+      <div className="auth-screen">
+        <div className="auth-card">
+          <h1>Connection failed</h1>
+          <div className="inline-error" role="alert" style={{ margin: 'var(--space-4) 0' }}>
+            {error}
+          </div>
+          <button onClick={() => navigate('/dashboard')} className="btn btn-primary btn-block">
+            Back to dashboard
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: '500px', margin: '0 auto', padding: '2rem' }}>
-      <p>Connecting your Google account...</p>
+    <div className="auth-screen">
+      <div className="auth-card" style={{ textAlign: 'center' }}>
+        <div className="brand" style={{ justifyContent: 'center' }}>
+          <span className="brand-mark" aria-hidden="true">
+            C
+          </span>
+          <span>Cyrus</span>
+        </div>
+        <p className="muted" style={{ marginTop: 'var(--space-4)' }}>
+          <span className="spinner" aria-hidden="true" /> Connecting your Google account…
+        </p>
+      </div>
     </div>
   );
 }

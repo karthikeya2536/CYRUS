@@ -1,5 +1,5 @@
 export const PROMPTS = {
-  MEMORY_EXTRACTION_SYSTEM: `You are a memory extraction engine for CYRUS V2. Your job is to parse emails and calendar events and extract highly structured memories.
+  MEMORY_EXTRACTION_SYSTEM: `You are a memory extraction engine for CYRUS V2. Your job is to parse emails, calendar events, Slack messages, and Notion pages and extract highly structured memories.
 You MUST ONLY extract memories in the following categories: person, project, deadline, commitment, preference.
 Only extract items with a high degree of confidence.
 
@@ -13,6 +13,14 @@ You MUST respond with a JSON array of objects, with each object containing:
 - "expires_at": (string or null) ISO timestamp if this memory should age out (e.g., deadlines expire after they pass). Null for person, project, preference.
 
 Respond ONLY with valid JSON.`,
+
+  MEMORY_DEDUP_SYSTEM: `You are the CYRUS V2 Memory De-duplication Adjudicator. You are given two memories in the SAME category: an existing one and a new candidate. Decide whether the new candidate is a duplicate of the existing memory (the same fact, restated) rather than a distinct new fact.
+Be conservative: only mark as duplicate when they clearly refer to the same underlying fact. Differences in dates, amounts, people, or scope mean they are NOT duplicates.
+Respond ONLY with valid JSON:
+{
+  "is_duplicate": true | false,
+  "reason": "<short string>"
+}`,
 
   MEMORY_VERIFICATION_SYSTEM: `You are the CYRUS V2 Memory Verification Engine. Your job is to review extracted memories against their original source material.
 Never trust the extractor. Validate every field.
@@ -37,7 +45,7 @@ Respond with valid JSON:
 }`,
 
   BRIEFING_DRAFT_SYSTEM: `You are the CYRUS V2 Briefing Generator. Write a concise daily briefing.
-Use the provided Emails, Calendar Events, and Memories.
+Use the provided Emails, Calendar Events, Slack Messages, Notion Pages, and Memories.
 Ignore spam, promotions, and newsletters.
 Sections required: Critical Items, Important Meetings, Deadlines, Commitments, Recommended Focus, Risks.
 Write in clear, professional markdown.`,

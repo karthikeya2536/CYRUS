@@ -1,32 +1,56 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-function jsonResponse(body: Record<string, unknown>, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
+import { buildCorsHeaders } from "../_shared/cors.ts";
+import { isPayloadTooLarge } from "../_shared/payload.ts";
+import { isAllowedRedirectUri } from "../_shared/validators.ts";
+import { createLogger, newRequestId } from "../_shared/log.ts";
 
 serve(async (req: Request) => {
+  const corsHeaders = buildCorsHeaders(req);
+  const requestId = newRequestId();
+  const log = createLogger("google-oauth-exchange", requestId);
+
+  function jsonResponse(body: Record<string, unknown>, status = 200) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { code, redirect_uri } = await req.json();
+    if (isPayloadTooLarge(req)) {
+      return jsonResponse({ error: "Payload too large" }, 413);
+    }
+
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return jsonResponse({ error: "Invalid JSON body" }, 400);
+    }
+    const { code, redirect_uri, state } = body as { code?: string; redirect_uri?: string; state?: string };
 
     if (!code) {
       return jsonResponse({ error: "Missing authorization code" }, 400);
     }
     if (!redirect_uri) {
       return jsonResponse({ error: "Missing redirect_uri" }, 400);
+    }
+    if (!state) {
+      return jsonResponse({ error: "Missing OAuth state" }, 400);
+    }
+
+    // Validate redirect_uri against allowlist (strict parse, localhost allowed)
+    const allowedRedirectUris = Deno.env.get("ALLOWED_REDIRECT_URIS");
+    if (!isAllowedRedirectUri(redirect_uri, allowedRedirectUris)) {
+      return jsonResponse({
+        error: "Invalid redirect_uri. Please contact the administrator.",
+      }, 400);
     }
 
     // Verify the user's JWT from the Authorization header
@@ -53,6 +77,45 @@ serve(async (req: Request) => {
     const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
     if (userError || !user) {
       return jsonResponse({ error: "Invalid user token" }, 401);
+    }
+
+    // Validate OAuth state server-side
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Look up the state
+    const { data: stateRecord, error: stateError } = await supabaseAdmin
+      .from("oauth_states")
+      .select("id, expires_at, used_at")
+      .eq("user_id", user.id)
+      .eq("provider", "google")
+      .eq("state", state)
+      .is("used_at", null)
+      .maybeSingle();
+
+    if (stateError) {
+      return jsonResponse({ error: "Failed to validate OAuth state" }, 500);
+    }
+
+    if (!stateRecord) {
+      return jsonResponse({ error: "Invalid or expired OAuth state. Please try connecting Google again." }, 400);
+    }
+
+    // Check if state has expired
+    const now = new Date();
+    const expiresAt = new Date(stateRecord.expires_at);
+    if (now > expiresAt) {
+      return jsonResponse({ error: "OAuth state has expired. Please try connecting Google again." }, 400);
+    }
+
+    // Mark state as used to prevent replay attacks
+    const { error: markUsedError } = await supabaseAdmin
+      .from("oauth_states")
+      .update({ used_at: now.toISOString() })
+      .eq("id", stateRecord.id);
+
+    if (markUsedError) {
+      log.error("oauth_state_mark_used_failed");
+      return jsonResponse({ error: "Failed to validate OAuth state" }, 500);
     }
 
     // Exchange authorization code for tokens with Google
@@ -83,9 +146,6 @@ serve(async (req: Request) => {
     });
     const googleUser = await userInfoResponse.json();
 
-    // Use service role client to write to integration_secrets (bypasses RLS)
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
     const tokenExpiresAt = tokenData.expires_in
       ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
       : null;
@@ -104,9 +164,8 @@ serve(async (req: Request) => {
       );
 
     if (accountError) {
-      return jsonResponse({
-        error: `Failed to save connected account: ${accountError.message}`,
-      }, 500);
+      log.error("connected_account_save_failed");
+      return jsonResponse({ error: "Failed to save connected account" }, 500);
     }
 
     // Preserve existing refresh_token if Google doesn't return one
@@ -118,9 +177,8 @@ serve(async (req: Request) => {
       .maybeSingle();
 
     if (existingError) {
-      return jsonResponse({
-        error: `Failed to read existing tokens: ${existingError.message}`,
-      }, 500);
+      log.error("existing_tokens_read_failed");
+      return jsonResponse({ error: "Failed to read existing tokens" }, 500);
     }
 
     const existingRefreshToken = existingSecrets?.refresh_token ?? null;
@@ -142,15 +200,14 @@ serve(async (req: Request) => {
       );
 
     if (secretError) {
-      return jsonResponse({
-        error: `Failed to save tokens: ${secretError.message}`,
-      }, 500);
+      log.error("token_save_failed");
+      return jsonResponse({ error: "Failed to save tokens" }, 500);
     }
 
     return jsonResponse({ success: true, provider_email: googleUser.email });
 
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return jsonResponse({ error: `Internal error: ${msg}` }, 500);
+  } catch (_err: unknown) {
+    log.error("unhandled error");
+    return jsonResponse({ error: "Internal server error" }, 500);
   }
 });

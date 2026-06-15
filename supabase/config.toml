@@ -1,4 +1,10 @@
 
+# Stripe calls this endpoint directly (no Supabase JWT). Authenticity is
+# enforced via Stripe-Signature HMAC verification inside the function.
+[functions.stripe-webhook]
+enabled = true
+verify_jwt = false
+
 [functions.memory-extraction]
 enabled = true
 verify_jwt = false
@@ -9,3 +15,13 @@ entrypoint = "./functions/memory-extraction/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/memory-extraction/*.html" ]
+
+# llm-worker: invoked by pg_cron via pg_net (no Supabase JWT).
+# Authentication is handled by the x-worker-secret header, verified inside
+# the function handler at supabase/functions/llm-worker/index.ts:526-528.
+# verify_jwt MUST be false — pg_net does not attach a user JWT.
+[functions.llm-worker]
+enabled = true
+verify_jwt = false
+import_map = "./functions/llm-worker/deno.json"
+entrypoint = "./functions/llm-worker/index.ts"

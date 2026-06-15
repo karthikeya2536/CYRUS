@@ -1,21 +1,40 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
+import { isPayloadTooLarge } from "../_shared/payload.ts";
+import { isSupportedProvider } from "../_shared/validators.ts";
+import { createLogger, newRequestId } from "../_shared/log.ts";
 
 serve(async (req: Request) => {
+  const corsHeaders = buildCorsHeaders(req);
+  const requestId = newRequestId();
+  const log = createLogger("google-oauth-disconnect", requestId);
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { provider } = await req.json();
+    if (isPayloadTooLarge(req)) {
+      return new Response(JSON.stringify({ error: "Payload too large" }), {
+        status: 413,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    if (!provider) {
-      return new Response(JSON.stringify({ error: "Missing provider" }), {
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { provider } = body as { provider?: string };
+
+    if (!isSupportedProvider(provider)) {
+      return new Response(JSON.stringify({ error: "Unsupported provider" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -55,7 +74,8 @@ serve(async (req: Request) => {
       .eq("provider", provider);
 
     if (error) {
-      return new Response(JSON.stringify({ error: `Failed to delete secrets: ${error.message}` }), {
+      log.error("integration_secrets_delete_failed");
+      return new Response(JSON.stringify({ error: "Failed to delete secrets" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -66,8 +86,9 @@ serve(async (req: Request) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (_err) {
+    log.error("unhandled error");
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -1,17 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-function jsonResponse(body: Record<string, unknown>, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
+import { buildCorsHeaders } from "../_shared/cors.ts";
+import { createLogger, newRequestId } from "../_shared/log.ts";
 
 // ============================================
 // TEST 1: Gmail Sync No Duplicates
@@ -274,8 +264,8 @@ async function test6_MemoryQuality(supabaseAdmin: any, userId: string) {
       const memoryContent = memory.content.toLowerCase();
 
       // Keyword overlap check
-      const sourceWords = new Set(sourceText.split(/\s+/).filter((w: string) => w.length > 3));
-      const memoryWords = new Set(memoryContent.split(/\s+/).filter((w: string) => w.length > 3));
+      const sourceWords = new Set<string>(sourceText.split(/\s+/).filter((w: string) => w.length > 3));
+      const memoryWords = new Set<string>(memoryContent.split(/\s+/).filter((w: string) => w.length > 3));
 
       // If memory words are mostly found in source, it's accurate
       const overlap = [...memoryWords].filter((w: string) => sourceWords.has(w)).length;
@@ -422,6 +412,17 @@ async function test8_RetrievalLatency(supabaseAdmin: any, userId: string) {
 // MAIN HANDLER
 // ============================================
 serve(async (req: Request) => {
+  const corsHeaders = buildCorsHeaders(req);
+  const requestId = newRequestId();
+  const log = createLogger("system-validation", requestId);
+
+  function jsonResponse(body: Record<string, unknown>, status = 200) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -437,30 +438,28 @@ serve(async (req: Request) => {
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user from auth header (for user-specific tests)
+    // Identity must come from a verified JWT only. Never trust env overrides
+    // or fall back to an arbitrary user — both leak cross-user data.
     const authHeader = req.headers.get("Authorization");
-    let userId = Deno.env.get("TEST_USER_ID");
-
-    if (authHeader && !userId) {
-      const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-      if (supabaseAnonKey) {
-        const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-          global: { headers: { Authorization: authHeader } },
-        });
-        const { data: { user } } = await supabaseUser.auth.getUser();
-        userId = user?.id;
-      }
+    if (!authHeader) {
+      return jsonResponse({ error: "Missing authorization header" }, 401);
     }
 
-    if (!userId) {
-      // Fall back to getting any user for system-wide tests
-      const { data: profiles } = await supabaseAdmin.from('profiles').select('id').limit(1);
-      userId = profiles?.[0]?.id;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    if (!supabaseAnonKey) {
+      return jsonResponse({ error: "Missing Supabase configuration" }, 500);
     }
 
-    if (!userId) {
-      return jsonResponse({ error: "No user found and no TEST_USER_ID set" }, 400);
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+    if (userError || !user) {
+      return jsonResponse({ error: "Invalid user token" }, 401);
     }
+
+    const userId = user.id;
 
     // Run all tests
     const testResults = {
@@ -493,8 +492,8 @@ serve(async (req: Request) => {
       timestamp: new Date().toISOString()
     });
 
-  } catch (err: any) {
-    console.error("System Validation Error:", err);
-    return jsonResponse({ error: `Internal error: ${err.message}` }, 500);
+  } catch (_err) {
+    log.error("unhandled error");
+    return jsonResponse({ error: "Internal server error" }, 500);
   }
 });
