@@ -40,6 +40,24 @@ jobs:
           done
           exit $fail
 
+  deno-test:
+    name: deno test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v2.x
+      - name: Run Deno tests (temporal, retrieval)
+        run: |
+          set -e
+          for f in supabase/functions/*/*.test.ts; do
+            [ -f "$f" ] || continue
+            echo "::group::deno test $f"
+            deno test --allow-read --allow-net "$f"
+            echo "::endgroup::"
+          done
+
   migrations:
     name: migration validation
     runs-on: ubuntu-latest
@@ -52,6 +70,14 @@ jobs:
         run: supabase start
       - name: Fresh reset (strict ordered re-apply of all migrations)
         run: supabase db reset
+      - name: Run retrieval validation scripts
+        run: |
+          for script in scripts/validate-dedup.sql scripts/validate-graph.sql; do
+            [ -f "$script" ] || continue
+            echo "::group::$script"
+            PGPASSWORD=postgres psql -h localhost -p 54322 -U postgres -d postgres -f "$script"
+            echo "::endgroup::"
+          done
       - name: Stop stack
         if: always()
         run: supabase stop || true

@@ -1,14 +1,19 @@
 name: Deploy
 
 # Deploys migrations + edge functions to the linked Supabase project.
+# Only runs after CI succeeds, via workflow_run trigger. Manual deploy via
+# workflow_dispatch is available for emergency or rollback scenarios.
+#
 # Requires repository secrets:
 #   SUPABASE_ACCESS_TOKEN  - personal access token (supabase.com/account/tokens)
 #   SUPABASE_PROJECT_REF   - target project ref (e.g. qdtyxwmejvyxqgtpibqn)
 #   SUPABASE_DB_PASSWORD   - database password (for db push)
 
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
   workflow_dispatch:
 
 concurrency:
@@ -18,6 +23,7 @@ concurrency:
 jobs:
   deploy:
     name: db push + functions deploy
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -25,6 +31,8 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run && github.event.workflow_run.head_branch || '' }}
       - uses: supabase/setup-cli@v1
         with:
           version: latest
