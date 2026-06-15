@@ -25,6 +25,13 @@
 --     environment. An auto-generated value cannot be synced back to the
 --     Edge Function env (no read path from Vault to env var).
 --   - No BEGIN/COMMIT — Supabase CLI wraps migrations in its own transaction.
+--   - cron.unschedule(text) returns BOOLEAN (true if removed, false if not
+--     found). It raises "could not find valid entry" only when called by a
+--     different PostgreSQL user than the one who created the job. The
+--     EXCEPTION handler guards this cross-user edge case.
+--   - cron.schedule(job_name, ...) is itself idempotent — it replaces an
+--     existing named job — so the prior unschedule is defensive, not
+--     required, but included for clarity.
 -- ============================================
 
 -- 1. Guard: ensure Vault secrets exist BEFORE scheduling the cron job.
@@ -79,13 +86,12 @@ BEGIN
   END IF;
 END $$;
 
--- 3. Idempotent: remove any prior schedule with the same name.
---    cron.unschedule(text) returns boolean — false is harmless when
---    the job does not exist. No exception handler needed.
-SELECT cron.unschedule('llm-worker-drain');
-
--- 4. Schedule the worker drain. Guarded for pg_cron availability, matching
---    the established pattern in 019_retrieval_observability.sql:114-124.
+-- 3. Schedule the worker drain (guarded for pg_cron availability).
+--    Matches the established pattern in 019_retrieval_observability.sql.
+--    The unschedule is defensive — cron.schedule(job_name, ...) replaces
+--    an existing named job, making it idempotent. But explicitly removing
+--    prior state first makes the intent clear and protects against any
+--    future pg_cron behavior change.
 DO $$
 BEGIN
   PERFORM 1 FROM pg_extension WHERE extname = 'pg_cron';
@@ -95,6 +101,15 @@ BEGIN
       'then re-run this migration.';
     RETURN;
   END IF;
+
+  -- Defensive: remove any prior schedule. cron.unschedule(text) returns false
+  -- when the job does not exist. The EXCEPTION handler guards the rare
+  -- cross-user edge case where it raises instead.
+  BEGIN
+    PERFORM cron.unschedule('llm-worker-drain');
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'No prior llm-worker-drain to unschedule: %', SQLERRM;
+  END;
 
   PERFORM cron.schedule(
     'llm-worker-drain',
@@ -125,7 +140,7 @@ END $$;
 -- ============================================
 -- ROLLBACK
 -- ============================================
--- SELECT cron.unschedule('llm-worker-drain');
+-- SELECT cron.unschedule('llm-worker-drain');  -- returns false if not found
 --
 -- To remove Vault secrets:
 --   DELETE FROM vault.secrets WHERE name IN ('project_url', 'worker_secret');
