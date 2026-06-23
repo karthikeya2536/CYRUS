@@ -23,6 +23,11 @@ schema additions required: two reinforcement columns and one `deadline_at` colum
 - No full ML / learning-to-rank. Deterministic, explainable scoring only.
 - No change to email/event RPC return shapes beyond what already exists.
 - The optional end-to-end harness is **not** a CI gate.
+- **`last_retrieved_at` is NOT a scoring signal in V1.** It is stored for observability,
+  dashboards, and future decay experiments only — see Phase B. `retrieval_count` already
+  covers retrieval behavior in the formula; adding `last_retrieved_at` would create two
+  overlapping retrieval-behavior signals and an unresolved weighting question
+  ("50 retrievals historically" vs "2 retrievals yesterday"). Deferred deliberately.
 
 ---
 
@@ -67,6 +72,7 @@ slightly-more-similar but non-urgent memory, which is the intended behavior.
   `recency = exp(-ageDays / RECENCY_HALFLIFE_DAYS)` with `RECENCY_HALFLIFE_DAYS` constant.
 - `reinforcement` — saturating: `log1p(retrieval_count) / log1p(REINF_CAP)`, clamped to 1.0.
   A 20-mention collaborator outranks a one-off, without runaway from very high counts.
+  Uses `retrieval_count` only; `last_retrieved_at` is **not** consumed by the formula in V1.
 - `urgency` — piecewise, see Phase C.
 
 **Debug metadata.** Every candidate carries a `_scores` object with each component plus the
@@ -94,13 +100,24 @@ that survive into the final assembled context** sent to the LLM — i.e. the act
 `assembler.ts` includes after the candidate → rerank → assemble pipeline. Entering the
 candidate pool is not proof of usefulness; being chosen for the answer is the success signal.
 
-- New service-role RPC `record_memory_retrievals(ids uuid[])`:
-  `UPDATE memory_records SET retrieval_count = retrieval_count + 1, last_retrieved_at = now()
-   WHERE id = ANY(ids)`.
+- New service-role RPC `record_memory_retrievals(ids uuid[])`. **Must be a single batched
+  UPDATE**, never a per-id loop — retrieval is about to become the hottest write path in
+  Cyrus, so a loop of N statements per query is unacceptable:
+  ```sql
+  UPDATE memory_records
+  SET retrieval_count = retrieval_count + 1,
+      last_retrieved_at = now()
+  WHERE id = ANY(ids);
+  ```
 - `retrieve-context/index.ts` collects the IDs of the **memory** rows actually placed in the
   assembled context (from `assembler.ts` output, not the pre-assembly candidate list) and
   calls the RPC **fire-and-forget** (not awaited on the response path) so query latency is
   unchanged. Only memory rows are reinforced (emails/events have no such column).
+
+**`retrieval_count` vs `last_retrieved_at` roles.** Both columns are written here, but they
+serve different consumers: `retrieval_count` feeds the `reinforcement` ranking signal;
+`last_retrieved_at` is written for **observability / dashboards / future decay experiments
+only** and is deliberately **not** read by `ranker.ts` in V1 (see Non-Goals).
 
 ---
 
@@ -184,6 +201,22 @@ unstable scoring model that we'd then rewrite. Expand after the model stabilizes
   thresholds recorded in the spec/test so regressions fail CI.
 - Urgency fixtures pin "today" deterministically (injected clock, no `Date.now()` ambiguity)
   to exercise the piecewise curve across buckets.
+
+**Adversarial cases are mandatory, not optional.** Trivial fixtures (query "udemy deadline"
+→ memory "finish udemy by july 10") inflate Recall@10 while telling you nothing about
+weighting quality. The 20 **ranking** fixtures in particular must include cases where the
+signals *conflict* and the correct order depends on the weights interacting. Canonical
+example — query "what should I focus on today?":
+
+| Memory | semantic | importance | urgency | intended outcome |
+|--------|----------|------------|---------|------------------|
+| A "finish udemy by july 10" | 0.45 | – | 1.0 | should rank high despite low semantic |
+| B "open github issue"       | 0.82 | – | 0.0 | high semantic alone is not enough |
+| C "reply to recruiter"      | 0.61 | 0.9 | 0.0 | importance lifts a mid-semantic item |
+
+These conflict cases are what actually validate that urgency/importance can overcome raw
+semantic similarity. A benchmark of only easy cases can look green while ranking stays
+mediocre.
 
 **Optional manual harness** `scripts/benchmark-retrieval.mjs` (opt-in, documented, NOT in CI):
 end-to-end against a local seeded Supabase stack with real embeddings, for spot-checking the
