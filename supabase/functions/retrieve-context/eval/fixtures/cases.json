@@ -1,0 +1,1511 @@
+[
+  {
+    "id": "rank-focus-today",
+    "kind": "ranking",
+    "query": "what should I focus on today?",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "A",
+        "similarity_distance": 0.55,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "B",
+        "similarity_distance": 0.18
+      },
+      {
+        "id": "C",
+        "similarity_distance": 0.39,
+        "llm_importance": 0.9,
+        "system_importance": 0.9
+      }
+    ],
+    "relevant": [
+      "A",
+      "C"
+    ]
+  },
+  {
+    "id": "rank-urgent-beats-similar",
+    "kind": "ranking",
+    "query": "anything due soon I should not miss?",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "U",
+        "similarity_distance": 0.5,
+        "deadline_at": "2025-06-25T00:00:00.000Z"
+      },
+      {
+        "id": "S",
+        "similarity_distance": 0.1
+      }
+    ],
+    "relevant": [
+      "U"
+    ]
+  },
+  {
+    "id": "urgency-udemy-july10",
+    "kind": "urgency",
+    "query": "udemy deadline",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "udemy",
+        "similarity_distance": 0.55,
+        "deadline_at": "2025-07-10T00:00:00.000Z"
+      },
+      {
+        "id": "noise",
+        "similarity_distance": 0.2
+      }
+    ],
+    "relevant": [
+      "udemy"
+    ]
+  },
+  {
+    "id": "retrieval-recruiter",
+    "kind": "retrieval",
+    "query": "which recruiter contacted me?",
+    "candidates": [
+      {
+        "id": "rec",
+        "similarity_distance": 0.22,
+        "llm_importance": 0.8
+      },
+      {
+        "id": "x1",
+        "similarity_distance": 0.7
+      },
+      {
+        "id": "x2",
+        "similarity_distance": 0.81
+      }
+    ],
+    "relevant": [
+      "rec"
+    ]
+  },
+  {
+    "id": "rank-reinforced-collaborator",
+    "kind": "ranking",
+    "query": "who am I working with on the project?",
+    "candidates": [
+      {
+        "id": "collab",
+        "similarity_distance": 0.4,
+        "retrieval_count": 20,
+        "llm_importance": 0.7
+      },
+      {
+        "id": "oneoff",
+        "similarity_distance": 0.35,
+        "retrieval_count": 1
+      }
+    ],
+    "relevant": [
+      "collab"
+    ]
+  },
+  {
+    "id": "retrieval-case-1",
+    "kind": "retrieval",
+    "query": "retrieval query 1",
+    "candidates": [
+      {
+        "id": "R1",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_1",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_1",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_1",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_1",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R1"
+    ]
+  },
+  {
+    "id": "retrieval-case-2",
+    "kind": "retrieval",
+    "query": "retrieval query 2",
+    "candidates": [
+      {
+        "id": "R2",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_2",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_2",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_2",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_2",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R2"
+    ]
+  },
+  {
+    "id": "retrieval-case-3",
+    "kind": "retrieval",
+    "query": "retrieval query 3",
+    "candidates": [
+      {
+        "id": "R3",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_3",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_3",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_3",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_3",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R3"
+    ]
+  },
+  {
+    "id": "retrieval-case-4",
+    "kind": "retrieval",
+    "query": "retrieval query 4",
+    "candidates": [
+      {
+        "id": "R4",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_4",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_4",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_4",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_4",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R4"
+    ]
+  },
+  {
+    "id": "retrieval-case-5",
+    "kind": "retrieval",
+    "query": "retrieval query 5",
+    "candidates": [
+      {
+        "id": "R5",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_5",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_5",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_5",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_5",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R5"
+    ]
+  },
+  {
+    "id": "retrieval-case-6",
+    "kind": "retrieval",
+    "query": "retrieval query 6",
+    "candidates": [
+      {
+        "id": "R6",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_6",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_6",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_6",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_6",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R6"
+    ]
+  },
+  {
+    "id": "retrieval-case-7",
+    "kind": "retrieval",
+    "query": "retrieval query 7",
+    "candidates": [
+      {
+        "id": "R7",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_7",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_7",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_7",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_7",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R7"
+    ]
+  },
+  {
+    "id": "retrieval-case-8",
+    "kind": "retrieval",
+    "query": "retrieval query 8",
+    "candidates": [
+      {
+        "id": "R8",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_8",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_8",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_8",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_8",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R8"
+    ]
+  },
+  {
+    "id": "retrieval-case-9",
+    "kind": "retrieval",
+    "query": "retrieval query 9",
+    "candidates": [
+      {
+        "id": "R9",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_9",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_9",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_9",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_9",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R9"
+    ]
+  },
+  {
+    "id": "retrieval-case-10",
+    "kind": "retrieval",
+    "query": "retrieval query 10",
+    "candidates": [
+      {
+        "id": "R10",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_10",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_10",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_10",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_10",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R10"
+    ]
+  },
+  {
+    "id": "retrieval-case-11",
+    "kind": "retrieval",
+    "query": "retrieval query 11",
+    "candidates": [
+      {
+        "id": "R11",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_11",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_11",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_11",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_11",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R11"
+    ]
+  },
+  {
+    "id": "retrieval-case-12",
+    "kind": "retrieval",
+    "query": "retrieval query 12",
+    "candidates": [
+      {
+        "id": "R12",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_12",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_12",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_12",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_12",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R12"
+    ]
+  },
+  {
+    "id": "retrieval-case-13",
+    "kind": "retrieval",
+    "query": "retrieval query 13",
+    "candidates": [
+      {
+        "id": "R13",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_13",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_13",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_13",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_13",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R13"
+    ]
+  },
+  {
+    "id": "retrieval-case-14",
+    "kind": "retrieval",
+    "query": "retrieval query 14",
+    "candidates": [
+      {
+        "id": "R14",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_14",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_14",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_14",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_14",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R14"
+    ]
+  },
+  {
+    "id": "retrieval-case-15",
+    "kind": "retrieval",
+    "query": "retrieval query 15",
+    "candidates": [
+      {
+        "id": "R15",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_15",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_15",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_15",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_15",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R15"
+    ]
+  },
+  {
+    "id": "retrieval-case-16",
+    "kind": "retrieval",
+    "query": "retrieval query 16",
+    "candidates": [
+      {
+        "id": "R16",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_16",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_16",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_16",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_16",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R16"
+    ]
+  },
+  {
+    "id": "retrieval-case-17",
+    "kind": "retrieval",
+    "query": "retrieval query 17",
+    "candidates": [
+      {
+        "id": "R17",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_17",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_17",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_17",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_17",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R17"
+    ]
+  },
+  {
+    "id": "retrieval-case-18",
+    "kind": "retrieval",
+    "query": "retrieval query 18",
+    "candidates": [
+      {
+        "id": "R18",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_18",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_18",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_18",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_18",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R18"
+    ]
+  },
+  {
+    "id": "retrieval-case-19",
+    "kind": "retrieval",
+    "query": "retrieval query 19",
+    "candidates": [
+      {
+        "id": "R19",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "N1_19",
+        "similarity_distance": 0.8
+      },
+      {
+        "id": "N2_19",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N3_19",
+        "similarity_distance": 0.75
+      },
+      {
+        "id": "N4_19",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "R19"
+    ]
+  },
+  {
+    "id": "ranking-case-1",
+    "kind": "ranking",
+    "query": "ranking query 1",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG1",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM1",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP1",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_1",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_1",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG1",
+      "SEM1",
+      "IMP1"
+    ]
+  },
+  {
+    "id": "ranking-case-2",
+    "kind": "ranking",
+    "query": "ranking query 2",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG2",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM2",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP2",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_2",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_2",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG2",
+      "SEM2",
+      "IMP2"
+    ]
+  },
+  {
+    "id": "ranking-case-3",
+    "kind": "ranking",
+    "query": "ranking query 3",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG3",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM3",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP3",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_3",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_3",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG3",
+      "SEM3",
+      "IMP3"
+    ]
+  },
+  {
+    "id": "ranking-case-4",
+    "kind": "ranking",
+    "query": "ranking query 4",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG4",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM4",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP4",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_4",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_4",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG4",
+      "SEM4",
+      "IMP4"
+    ]
+  },
+  {
+    "id": "ranking-case-5",
+    "kind": "ranking",
+    "query": "ranking query 5",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG5",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM5",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP5",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_5",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_5",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG5",
+      "SEM5",
+      "IMP5"
+    ]
+  },
+  {
+    "id": "ranking-case-6",
+    "kind": "ranking",
+    "query": "ranking query 6",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG6",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM6",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP6",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_6",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_6",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG6",
+      "SEM6",
+      "IMP6"
+    ]
+  },
+  {
+    "id": "ranking-case-7",
+    "kind": "ranking",
+    "query": "ranking query 7",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG7",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM7",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP7",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_7",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_7",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG7",
+      "SEM7",
+      "IMP7"
+    ]
+  },
+  {
+    "id": "ranking-case-8",
+    "kind": "ranking",
+    "query": "ranking query 8",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG8",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM8",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP8",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_8",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_8",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG8",
+      "SEM8",
+      "IMP8"
+    ]
+  },
+  {
+    "id": "ranking-case-9",
+    "kind": "ranking",
+    "query": "ranking query 9",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG9",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM9",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP9",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_9",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_9",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG9",
+      "SEM9",
+      "IMP9"
+    ]
+  },
+  {
+    "id": "ranking-case-10",
+    "kind": "ranking",
+    "query": "ranking query 10",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG10",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM10",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP10",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_10",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_10",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG10",
+      "SEM10",
+      "IMP10"
+    ]
+  },
+  {
+    "id": "ranking-case-11",
+    "kind": "ranking",
+    "query": "ranking query 11",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG11",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM11",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP11",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_11",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_11",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG11",
+      "SEM11",
+      "IMP11"
+    ]
+  },
+  {
+    "id": "ranking-case-12",
+    "kind": "ranking",
+    "query": "ranking query 12",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG12",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM12",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP12",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_12",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_12",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG12",
+      "SEM12",
+      "IMP12"
+    ]
+  },
+  {
+    "id": "ranking-case-13",
+    "kind": "ranking",
+    "query": "ranking query 13",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG13",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM13",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP13",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_13",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_13",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG13",
+      "SEM13",
+      "IMP13"
+    ]
+  },
+  {
+    "id": "ranking-case-14",
+    "kind": "ranking",
+    "query": "ranking query 14",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG14",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM14",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP14",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_14",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_14",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG14",
+      "SEM14",
+      "IMP14"
+    ]
+  },
+  {
+    "id": "ranking-case-15",
+    "kind": "ranking",
+    "query": "ranking query 15",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG15",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM15",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP15",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_15",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_15",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG15",
+      "SEM15",
+      "IMP15"
+    ]
+  },
+  {
+    "id": "ranking-case-16",
+    "kind": "ranking",
+    "query": "ranking query 16",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG16",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM16",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP16",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_16",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_16",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG16",
+      "SEM16",
+      "IMP16"
+    ]
+  },
+  {
+    "id": "ranking-case-17",
+    "kind": "ranking",
+    "query": "ranking query 17",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG17",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM17",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP17",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_17",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_17",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG17",
+      "SEM17",
+      "IMP17"
+    ]
+  },
+  {
+    "id": "ranking-case-18",
+    "kind": "ranking",
+    "query": "ranking query 18",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "URG18",
+        "similarity_distance": 0.6,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "SEM18",
+        "similarity_distance": 0.15
+      },
+      {
+        "id": "IMP18",
+        "similarity_distance": 0.5,
+        "llm_importance": 0.9,
+        "system_importance": 0.8
+      },
+      {
+        "id": "N1_18",
+        "similarity_distance": 0.9
+      },
+      {
+        "id": "N2_18",
+        "similarity_distance": 0.85
+      }
+    ],
+    "relevant": [
+      "URG18",
+      "SEM18",
+      "IMP18"
+    ]
+  },
+  {
+    "id": "urgency-case-0",
+    "kind": "urgency",
+    "query": "urgency query 0",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "U",
+        "similarity_distance": 0.5,
+        "deadline_at": "2025-08-02T00:00:00.000Z"
+      },
+      {
+        "id": "noise",
+        "similarity_distance": 0.3
+      }
+    ],
+    "relevant": [
+      "noise"
+    ]
+  },
+  {
+    "id": "urgency-case-1",
+    "kind": "urgency",
+    "query": "urgency query 1",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "U",
+        "similarity_distance": 0.5,
+        "deadline_at": "2025-07-13T00:00:00.000Z"
+      },
+      {
+        "id": "noise",
+        "similarity_distance": 0.3
+      }
+    ],
+    "relevant": [
+      "U"
+    ]
+  },
+  {
+    "id": "urgency-case-2",
+    "kind": "urgency",
+    "query": "urgency query 2",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "U",
+        "similarity_distance": 0.5,
+        "deadline_at": "2025-07-03T00:00:00.000Z"
+      },
+      {
+        "id": "noise",
+        "similarity_distance": 0.3
+      }
+    ],
+    "relevant": [
+      "U"
+    ]
+  },
+  {
+    "id": "urgency-case-3",
+    "kind": "urgency",
+    "query": "urgency query 3",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "U",
+        "similarity_distance": 0.5,
+        "deadline_at": "2025-06-28T00:00:00.000Z"
+      },
+      {
+        "id": "noise",
+        "similarity_distance": 0.3
+      }
+    ],
+    "relevant": [
+      "U"
+    ]
+  },
+  {
+    "id": "urgency-case-4",
+    "kind": "urgency",
+    "query": "urgency query 4",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "U",
+        "similarity_distance": 0.5,
+        "deadline_at": "2025-06-24T00:00:00.000Z"
+      },
+      {
+        "id": "noise",
+        "similarity_distance": 0.3
+      }
+    ],
+    "relevant": [
+      "U"
+    ]
+  },
+  {
+    "id": "urgency-case-5",
+    "kind": "urgency",
+    "query": "urgency query 5",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "U",
+        "similarity_distance": 0.5,
+        "deadline_at": "2025-06-22T00:00:00.000Z"
+      },
+      {
+        "id": "noise",
+        "similarity_distance": 0.3
+      }
+    ],
+    "relevant": [
+      "U"
+    ]
+  },
+  {
+    "id": "urgency-case-6",
+    "kind": "urgency",
+    "query": "urgency query 6",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "U",
+        "similarity_distance": 0.5,
+        "deadline_at": "2025-06-19T00:00:00.000Z"
+      },
+      {
+        "id": "noise",
+        "similarity_distance": 0.3
+      }
+    ],
+    "relevant": [
+      "U"
+    ]
+  },
+  {
+    "id": "urgency-case-7",
+    "kind": "urgency",
+    "query": "urgency query 7",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "U",
+        "similarity_distance": 0.5,
+        "deadline_at": "2025-06-13T00:00:00.000Z"
+      },
+      {
+        "id": "noise",
+        "similarity_distance": 0.3
+      }
+    ],
+    "relevant": [
+      "noise"
+    ]
+  },
+  {
+    "id": "urgency-case-8",
+    "kind": "urgency",
+    "query": "urgency query 8",
+    "nowMs": 1750636800000,
+    "candidates": [
+      {
+        "id": "U",
+        "similarity_distance": 0.5,
+        "deadline_at": "2025-06-25T00:00:00.000Z"
+      },
+      {
+        "id": "noise",
+        "similarity_distance": 0.3
+      }
+    ],
+    "relevant": [
+      "U"
+    ]
+  }
+]
