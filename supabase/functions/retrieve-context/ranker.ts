@@ -105,7 +105,7 @@ function deadlineSource(item: any): string | null {
 }
 
 // Piecewise urgency curve (explainable buckets). d = days until deadline.
-export function urgencyScore(dateString: string | null, nowMs: number): number {
+export function urgencyScore(dateString: string | null, nowMs: number, isEventStartTime: boolean = false): number {
   if (!dateString) return 0;
   const t = new Date(dateString).getTime();
   if (Number.isNaN(t)) return 0;
@@ -117,6 +117,9 @@ export function urgencyScore(dateString: string | null, nowMs: number): number {
     if (d > 3) return 0.7;
     return 1.0; // 3 >= d >= 0
   }
+  
+  if (isEventStartTime) return 0.0;
+  
   const late = -d;
   if (late <= 2) return 1.0;
   if (late <= 7) return 0.5;
@@ -137,7 +140,9 @@ export function rankResults(
     const importance = importanceScore(item);
     const recency = recencyScore(recencySource(item), nowMs);
     const reinforcement = reinforcementScore(item);
-    const urgency = urgencyScore(deadlineSource(item), nowMs);
+    
+    const isEventStartTime = !item.deadline_at && !!item.start_time;
+    const urgency = urgencyScore(deadlineSource(item), nowMs, isEventStartTime);
     const temporalBoost = calculateTemporalBoost(item, temporal, nowMs);
 
     const finalScore =

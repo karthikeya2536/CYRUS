@@ -24,6 +24,14 @@ Deno.test("urgencyScore piecewise overdue buckets", () => {
   assertEquals(urgencyScore(null, JUNE23), 0);                                       // no deadline
 });
 
+Deno.test("urgencyScore: past events do not get urgency, but past deadlines do", () => {
+  const day = 86400000;
+  assertEquals(urgencyScore(new Date(JUNE23 - 1 * day).toISOString(), JUNE23, false), 1.0); 
+  assertEquals(urgencyScore(new Date(JUNE23 - 1 * day).toISOString(), JUNE23, true), 0.0);
+  assertEquals(urgencyScore(new Date(JUNE23 + 2 * day).toISOString(), JUNE23, true), 1.0);
+});
+
+
 Deno.test("reinforcementScore saturates and clamps", () => {
   assertEquals(reinforcementScore({ retrieval_count: 0 }), 0);
   assertEquals(reinforcementScore({}), 0);
