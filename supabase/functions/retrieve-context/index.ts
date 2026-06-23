@@ -56,9 +56,19 @@ serve(async (req: Request) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser(token);
+
+    const debugLogs = {
+      authLength: authHeader?.length,
+      tokenLength: token?.length,
+      userError,
+      user
+    };
+    console.log(JSON.stringify(debugLogs));
+
     if (userError || !user) {
-      return jsonResponse({ error: "Invalid token" }, 401);
+      return jsonResponse({ error: "Invalid token", debug: debugLogs }, 401);
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -175,6 +185,30 @@ serve(async (req: Request) => {
 
     // 5. Assemble Context
     const assembled = assembleContext(allRanked, 2000, 0.3); // Drop below 0.3 score
+
+    // Phase B: reinforce ONLY memories that reached the final assembled context
+    // (the rows actually sent to the LLM) — not every above-threshold candidate.
+    // Single batched UPDATE via RPC; fire-and-forget so query latency is unchanged.
+    try {
+      const reinforcedIds = assembled.context
+        .filter((c: any) => c.source === "memory")
+        .map((c: any) => c.id)
+        .filter(Boolean);
+      if (reinforcedIds.length) {
+        const p = supabaseAdmin.rpc("record_memory_retrievals", {
+          p_user_id: user.id,
+          ids: reinforcedIds,
+        });
+        const rt = (globalThis as any).EdgeRuntime;
+        if (rt && typeof rt.waitUntil === "function") {
+          rt.waitUntil(Promise.resolve(p).catch(() => {}));
+        } else {
+          await Promise.resolve(p).catch(() => {});
+        }
+      }
+    } catch (_e) {
+      log.warn("reinforcement_write_failed");
+    }
 
     const latencyMs = Date.now() - startTime;
 
