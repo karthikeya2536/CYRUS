@@ -48,31 +48,53 @@ function formatDate(dateString: string) {
   return d.toLocaleString("en-US", { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 }
 
-function ruleBasedExtraction(emails: any[], events: any[]) {
-  const candidates: any[] = [];
-  if (emails) {
-    for (const email of emails) {
-      const text = (email.subject + " " + email.snippet + " " + (email.body_text || "")).toLowerCase();
-      if (email.system_importance > 0 && email.sender) {
-        const match = email.sender.match(/^([^<]+)/);
-        const name = match ? match[1].trim() : email.sender;
-        if (name && name.length > 2 && name.length < 50) {
-          candidates.push({
-            category: 'person', content: name, source_type: 'email', source_id: email.gmail_message_id,
-            confidence: Math.min(100, 70 + (email.system_importance * 30)), evidence: ['Found in sender'], source_excerpt: email.sender, expires_at: null, llm_importance: 0.5, system_importance: email.system_importance
-          });
-        }
-      }
-      const projectMatch = text.match(/(?:project|phase)\s+([a-z0-9]+)/i);
-      if (projectMatch) {
-        candidates.push({
-          category: 'project', content: `Project ${projectMatch[1].toUpperCase()}`, source_type: 'email', source_id: email.gmail_message_id,
-          confidence: 80, evidence: ['Pattern match'], source_excerpt: projectMatch[0], expires_at: null, llm_importance: 0.5, system_importance: 0.5
-        });
-      }
-    }
+function ruleBasedExtraction(_emails: any[], _events: any[]) {
+  return [];
+}
+
+// Deterministic memory lifecycle. expires_at is DERIVED from the category here,
+// never trusted from the LLM, so memory expiry is consistent and auditable:
+//   - event / meeting -> the event's end time (or start time); for email-sourced
+//     items with no calendar row, the date the extractor parsed.
+//   - deadline         -> the deadline date + 7 days of grace.
+//   - commitment / preference / person / project / other -> null (durable).
+// `eventById` maps a calendar event's google_event_id to its row so calendar-
+// derived memories (whose source_id is that id) get the real event time.
+function computeExpiresAt(mem: any, eventById: Map<string, any>): string | null {
+  const category = String(mem.category || "").toLowerCase();
+  if (category === "event" || category === "meeting") {
+    const ev = mem.source_id ? eventById.get(String(mem.source_id)) : null;
+    if (ev) return ev.end_time || ev.start_time || null;
+    const d = mem.expires_at ? new Date(mem.expires_at) : null;
+    return d && !isNaN(d.getTime()) ? d.toISOString() : null;
   }
-  return candidates;
+  if (category === "deadline") {
+    const d = mem.expires_at ? new Date(mem.expires_at) : null;
+    if (d && !isNaN(d.getTime())) {
+      return new Date(d.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    }
+    return null;
+  }
+  return null;
+}
+
+// Raw, pre-grace deadline used purely as a ranking signal (urgency). Distinct
+// from expires_at (lifecycle). For time-bound categories this is the LLM's /
+// calendar's actual date; expires_at is always >= this (grace added in
+// computeExpiresAt), so a deadline memory is never lifecycle-expired early.
+function computeDeadlineAt(mem: any, eventById: Map<string, any>): string | null {
+  const category = String(mem.category || "").toLowerCase();
+  if (category === "event" || category === "meeting") {
+    const ev = mem.source_id ? eventById.get(String(mem.source_id)) : null;
+    if (ev) return ev.start_time || ev.end_time || null;
+    const d = mem.expires_at ? new Date(mem.expires_at) : null;
+    return d && !isNaN(d.getTime()) ? d.toISOString() : null;
+  }
+  if (category === "deadline") {
+    const d = mem.expires_at ? new Date(mem.expires_at) : null;
+    return d && !isNaN(d.getTime()) ? d.toISOString() : null;
+  }
+  return null;
 }
 
 function ruleBasedBriefing(emails: any[], events: any[]) {
@@ -98,13 +120,28 @@ function ruleBasedBriefing(emails: any[], events: any[]) {
 async function processMemoryExtraction(job: any) {
   const user_id = job.user_id;
   
-  const { data: emails } = await supabaseAdmin.from("emails").select("*").eq("user_id", user_id).order("received_at", { ascending: false }).limit(50);
-  const { data: events } = await supabaseAdmin.from("calendar_events").select("*").eq("user_id", user_id).gte("start_time", new Date().toISOString()).limit(50);
-  const { data: slackMessages } = await supabaseAdmin.from("slack_messages").select("*").eq("user_id", user_id).order("posted_at", { ascending: false }).limit(50);
-  const { data: notionPages } = await supabaseAdmin.from("notion_pages").select("*").eq("user_id", user_id).order("last_edited_at", { ascending: false }).limit(50);
+  const { data: emails, error: emailsError } = await supabaseAdmin.from("emails").select("*").eq("user_id", user_id).order("received_at", { ascending: false }).limit(10);
+  if (emailsError) throw emailsError;
+  // Only near-term events feed memory extraction. Without an upper bound,
+  // recurring/annual events (birthdays years out) get ingested as permanent
+  // memories. 30 days keeps extraction to actionable horizon.
+  const extractionNow = new Date().toISOString();
+  const extractionWindowEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: events, error: eventsError } = await supabaseAdmin.from("calendar_events").select("*").eq("user_id", user_id).gte("start_time", extractionNow).lte("start_time", extractionWindowEnd).limit(50);
+  if (eventsError) throw eventsError;
+  const { data: slackMessages, error: slackError } = await supabaseAdmin.from("slack_messages").select("*").eq("user_id", user_id).order("posted_at", { ascending: false }).limit(50);
+  if (slackError) throw slackError;
+  const { data: notionPages, error: notionError } = await supabaseAdmin.from("notion_pages").select("*").eq("user_id", user_id).order("last_edited_at", { ascending: false }).limit(50);
+  if (notionError) throw notionError;
 
   const emailPayload = (emails || []).map(e => `ID:${e.gmail_message_id}\nFrom:${e.sender}\nSubj:${e.subject}\nBody:${e.snippet}`).join('\n---\n');
   const eventPayload = (events || []).map(e => `ID:${e.google_event_id}\nTitle:${e.title}\nTime:${e.start_time}`).join('\n---\n');
+  // Index events by their google_event_id so calendar-derived memories can be
+  // expired at the real event time (see computeExpiresAt).
+  const eventById = new Map<string, any>();
+  for (const e of (events || [])) {
+    if (e.google_event_id) eventById.set(String(e.google_event_id), e);
+  }
   const slackPayload = (slackMessages || []).map(m => `ID:${m.slack_ts}\nChannel:${m.channel_name || m.channel_id}\nAuthor:${m.author}\nText:${m.text}`).join('\n---\n');
   const notionPayload = (notionPages || []).map(p => `ID:${p.notion_page_id}\nTitle:${p.title}\nContent:${p.content}`).join('\n---\n');
 
@@ -157,7 +194,9 @@ async function processMemoryExtraction(job: any) {
     let verifierProvider = 'rule-engine';
     let finalContent = mem.content;
     let finalConfidence = mem.confidence;
-    let finalExpiresAt = mem.expires_at || null;
+    let verifierReasoning = "";
+    const finalExpiresAt = computeExpiresAt(mem, eventById);
+    const finalDeadlineAt = computeDeadlineAt(mem, eventById);
     let finalLlmImportance = mem.llm_importance !== undefined ? mem.llm_importance : 0.5;
     
     let finalSystemImportance = mem.system_importance !== undefined ? mem.system_importance : 0.5;
@@ -165,6 +204,7 @@ async function processMemoryExtraction(job: any) {
       if (mem.category === 'deadline' || mem.category === 'commitment') finalSystemImportance = 0.9;
       else if (mem.category === 'project') finalSystemImportance = 0.8;
       else if (mem.category === 'person') finalSystemImportance = 0.7;
+      else if (mem.category === 'meeting' || mem.category === 'event') finalSystemImportance = 0.7;
       else if (mem.category === 'preference') finalSystemImportance = 0.6;
     }
 
@@ -185,6 +225,7 @@ async function processMemoryExtraction(job: any) {
           const vMatch = vStr.match(/\{.*\}/s);
           if (vMatch) vStr = vMatch[0];
           const vData = JSON.parse(vStr);
+          verifierReasoning = vData.reasoning || "";
 
           finalDecision = vData.decision;
           if (vData.decision === 'MODIFIED') {
@@ -217,9 +258,52 @@ async function processMemoryExtraction(job: any) {
             }
           }
         } catch (e) {
+          // Fail closed: an unparseable verifier response must not silently
+          // admit an unverified memory. Reject rather than approve.
           workerLog.warn("verifier_json_parse_failed");
-          finalDecision = 'APPROVE';
+          finalDecision = 'REJECT';
         }
+      }
+    }
+
+    if (typeof finalContent !== "string") {
+      finalContent = (finalContent as any)?.content ?? "";
+    }
+
+    if (!finalContent || typeof finalContent !== 'string' || !finalContent.trim()) {
+      finalDecision = 'REJECT';
+      finalContent = "";
+    } else {
+      try {
+        const parsed = JSON.parse(finalContent);
+        if (
+          typeof parsed === "object" &&
+          parsed !== null &&
+          typeof parsed.content === "string"
+        ) {
+          finalContent = parsed.content;
+        }
+      } catch {}
+    }
+
+    if (
+      finalContent.includes('"category"') &&
+      finalContent.includes('"confidence"')
+    ) {
+      finalDecision = 'REJECT';
+    }
+
+    if (finalDecision === 'APPROVE' || finalDecision === 'MODIFIED') {
+      const isOnlyName = /^[A-Z][a-z]+(\s[A-Z][a-z]+)+$/.test(finalContent.trim());
+      
+      if (
+        finalContent.length < 8 ||
+        isOnlyName ||
+        finalContent.trim().startsWith("{") ||
+        finalConfidence < 70 ||
+        (verifierReasoning && finalContent === verifierReasoning)
+      ) {
+        finalDecision = 'REJECT';
       }
     }
 
@@ -251,7 +335,8 @@ async function processMemoryExtraction(job: any) {
             occurrence_count: existing.occurrence_count + 1,
             confidence_score: Math.min(100, existing.confidence_score + 5),
             last_seen_at: new Date().toISOString(),
-            expires_at: finalExpiresAt || existing.expires_at
+            expires_at: finalExpiresAt || existing.expires_at,
+            deadline_at: finalDeadlineAt
           }).eq("id", existing.id);
           updated++;
         }
@@ -312,6 +397,7 @@ async function processMemoryExtraction(job: any) {
                   occurrence_count: top.occurrence_count + 1,
                   confidence_score: Math.min(100, top.confidence_score + 5),
                   last_seen_at: new Date().toISOString(),
+                  deadline_at: finalDeadlineAt,
                 }).eq("id", top.id);
                 await supabaseAdmin.from("memory_merge_audit").insert({
                   user_id,
@@ -349,6 +435,7 @@ async function processMemoryExtraction(job: any) {
             evidence: mem.evidence || [],
             source_excerpt: mem.source_excerpt || '',
             expires_at: finalExpiresAt,
+            deadline_at: finalDeadlineAt,
             llm_importance: finalLlmImportance,
             system_importance: finalSystemImportance,
             // Reuse the embedding we already computed for dedup when available,
@@ -356,7 +443,12 @@ async function processMemoryExtraction(job: any) {
             ...(dedupEmbedding ? { embedding: dedupEmbedding } : {}),
           }).select('id').single();
 
-          if (!memErr && newMem) {
+          if (memErr) {
+            console.error("memory_insert_failed", memErr);
+            throw memErr;
+          }
+
+          if (newMem) {
             inserted++;
             memoryCount++;
             // Phase 16: record entity mentions for graph traversal (best-effort).
@@ -409,18 +501,18 @@ async function processGenerateEmbedding(job: any) {
 async function processBriefingGeneration(job: any) {
   const user_id = job.user_id;
 
-  const { data: emails } = await supabaseAdmin
+  const { data: emails, error: emailsError } = await supabaseAdmin
     .from("emails")
     .select("*")
     .eq("user_id", user_id)
-    .gt("system_importance", 0.0)
-    .order("system_importance", { ascending: false })
+    .order("received_at", { ascending: false })
     .limit(10);
+  if (emailsError) throw emailsError;
 
   const now = new Date().toISOString();
   const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data: events } = await supabaseAdmin
+  const { data: events, error: eventsError } = await supabaseAdmin
     .from("calendar_events")
     .select("*")
     .eq("user_id", user_id)
@@ -428,28 +520,33 @@ async function processBriefingGeneration(job: any) {
     .lte("start_time", sevenDaysFromNow)
     .order("start_time", { ascending: true })
     .limit(10);
+  if (eventsError) throw eventsError;
 
-  const { data: memories } = await supabaseAdmin
+  const { data: memories, error: memoriesError } = await supabaseAdmin
     .from("memory_records")
     .select("*")
     .eq("user_id", user_id)
     .eq("active", true)
+    .or(`expires_at.is.null,expires_at.gt.${now}`)
     .order("confidence_score", { ascending: false })
     .limit(20);
+  if (memoriesError) throw memoriesError;
 
-  const { data: slackMessages } = await supabaseAdmin
+  const { data: slackMessages, error: slackError } = await supabaseAdmin
     .from("slack_messages")
     .select("*")
     .eq("user_id", user_id)
     .order("posted_at", { ascending: false })
     .limit(10);
+  if (slackError) throw slackError;
 
-  const { data: notionPages } = await supabaseAdmin
+  const { data: notionPages, error: notionError } = await supabaseAdmin
     .from("notion_pages")
     .select("*")
     .eq("user_id", user_id)
     .order("last_edited_at", { ascending: false })
     .limit(10);
+  if (notionError) throw notionError;
 
   const emailPayload = (emails || []).map(e => `From:${e.sender}\nSubj:${e.subject}\nBody:${e.snippet}`).join('\n---\n');
   const eventPayload = (events || []).map(e => `Title:${e.title}\nTime:${e.start_time}`).join('\n---\n');
@@ -532,23 +629,52 @@ serve(async (req: Request) => {
   const log = createLogger("llm-worker", requestId);
 
   try {
-    // 0. Reclaim jobs stuck in "processing" from a crashed worker so they retry.
+    // 0. Reclaim jobs stuck in "processing" from a crashed/timed-out worker.
+    //    A job killed by the function timeout never reaches the catch block, so
+    //    its dead-letter check must also run here. attempts is incremented at
+    //    claim time, so a job that exhausted max_attempts is dead-lettered;
+    //    otherwise it is requeued. Without this, a job that always times out is
+    //    reclaimed forever and never dead-letters.
     const staleCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    await supabaseAdmin
+    const { data: staleJobs } = await supabaseAdmin
       .from("llm_jobs")
-      .update({ status: "pending" })
+      .select("id, attempts, max_attempts")
       .eq("status", "processing")
       .lt("started_at", staleCutoff);
 
+    if (staleJobs && staleJobs.length > 0) {
+      const deadIds = staleJobs.filter((j: any) => j.attempts >= j.max_attempts).map((j: any) => j.id);
+      const requeueIds = staleJobs.filter((j: any) => j.attempts < j.max_attempts).map((j: any) => j.id);
+
+      if (deadIds.length > 0) {
+        await supabaseAdmin
+          .from("llm_jobs")
+          .update({ status: "permanently_failed", last_error: "Reclaimed after timeout; max attempts exhausted." })
+          .in("id", deadIds);
+      }
+      if (requeueIds.length > 0) {
+        await supabaseAdmin
+          .from("llm_jobs")
+          .update({ status: "pending" })
+          .in("id", requeueIds);
+      }
+    }
+
     let processed = 0;
     const completed: string[] = [];
+    const seen: string[] = [];
 
     while (processed < MAX_JOBS_PER_RUN) {
-      // 1. Fetch one pending job
-      const { data: jobs, error: fetchErr } = await supabaseAdmin
+      // 1. Fetch one pending job, skipping any already touched this run so a
+      //    failed/re-queued job can't be re-selected ahead of other jobs.
+      let query = supabaseAdmin
         .from("llm_jobs")
         .select("*")
-        .eq("status", "pending")
+        .eq("status", "pending");
+      if (seen.length > 0) {
+        query = query.not("id", "in", `(${seen.join(",")})`);
+      }
+      const { data: jobs, error: fetchErr } = await query
         .order("priority", { ascending: true })
         .order("created_at", { ascending: true })
         .limit(1);
@@ -557,6 +683,7 @@ serve(async (req: Request) => {
       if (!jobs || jobs.length === 0) break;
 
       const job = jobs[0];
+      seen.push(job.id);
 
       // 2. Mark as processing (optimistic locking)
       const { data: updatedJob, error: updateErr } = await supabaseAdmin
@@ -623,8 +750,10 @@ serve(async (req: Request) => {
         if (isPermanent) {
           jobLog.error("job_dead_lettered", { job_id: updatedJob.id });
         }
-        // Stop this run on failure so a failing job can't spin the loop.
-        break;
+        // Isolate the failure: skip to the next job instead of aborting the
+        // whole run. The failed job is excluded via `seen`, so it won't be
+        // re-selected this run.
+        continue;
       }
     }
 
