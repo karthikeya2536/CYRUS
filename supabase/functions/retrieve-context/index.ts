@@ -11,6 +11,7 @@ import { isValidQuery, MAX_QUERY_LENGTH } from "../_shared/validators.ts";
 import { parseTemporal } from "../_shared/temporal.ts";
 import { getUserPlan, consumeQuota } from "../_shared/plans.ts";
 import { createLogger, newRequestId } from "../_shared/log.ts";
+import { withTraceContext, startSpan, sendBufferedSpans } from "../_shared/trace.ts";
 
 const RATE_LIMIT_PER_MIN = 30;
 
@@ -26,22 +27,40 @@ const GRAPH_MAX_EXPANDED_MEMORIES = 25;
 const GRAPH_SEED_COUNT = 10;
 
 serve(async (req: Request) => {
-  const corsHeaders = buildCorsHeaders(req);
-  const requestId = newRequestId();
-  const log = createLogger("retrieve-context", requestId);
+  const rootTraceId = crypto.randomUUID();
+  const rootSpanId = crypto.randomUUID();
 
-  function jsonResponse(body: Record<string, unknown>, status = 200) {
-    return new Response(JSON.stringify(body), {
-      status,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
+  return await withTraceContext({ trace_id: rootTraceId, span_id: rootSpanId }, async () => {
+    const rootSpan = startSpan("retrieve-context", "http_request", { span_kind: "server", trace_id: rootTraceId });
+    let adminClient: any = null;
 
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+    const corsHeaders = buildCorsHeaders(req);
+    const requestId = newRequestId();
+    const log = createLogger("retrieve-context", requestId);
 
-  try {
+    function jsonResponse(body: Record<string, unknown>, status = 200) {
+      rootSpan.setStatus(status >= 400 ? "error" : "ok");
+      rootSpan.end();
+      if (adminClient) {
+        const rt = (globalThis as any).EdgeRuntime;
+        if (rt && typeof rt.waitUntil === "function") {
+          rt.waitUntil(sendBufferedSpans(adminClient));
+        } else {
+          sendBufferedSpans(adminClient).catch(() => {});
+        }
+      }
+      return new Response(JSON.stringify(body), {
+        status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (req.method === 'OPTIONS') {
+      rootSpan.end();
+      return new Response('ok', { headers: corsHeaders });
+    }
+
+    try {
     // Verify JWT and extract user identity
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -72,6 +91,7 @@ serve(async (req: Request) => {
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    adminClient = supabaseAdmin;
     const rl = await checkRateLimit(supabaseAdmin, user.id, "retrieve-context", RATE_LIMIT_PER_MIN);
     if (rl.limited) {
       return jsonResponse({ error: "Rate limit exceeded. Try again shortly." }, 429);
@@ -153,38 +173,82 @@ serve(async (req: Request) => {
 
     // 4. Rank Results (Phase 15: temporal boost is reranking-only; candidate
     // generation above is unchanged).
+    const rankSpan = startSpan("retrieve-context", "rank_results");
     const temporal = parseTemporal(query);
     const rankedMemories = rankResults(memories, parsedQuery.intent, parsedQuery.entities, temporal);
     const rankedEmails = rankResults(emails, parsedQuery.intent, parsedQuery.entities, temporal);
     const rankedEvents = rankResults(events, parsedQuery.intent, parsedQuery.entities, temporal);
+    rankSpan.setAttribute("candidates", memories.length + emails.length + events.length);
+    rankSpan.end();
 
-    // 4b. Phase 16: graph-based context expansion. Walk the entity graph from
-    // the top retrieved memories to related memories, then rerank them with the
-    // existing ranker (no ranking redesign). Best-effort; never blocks retrieval.
-    let rankedExpanded: any[] = [];
-    try {
-      const seedIds = rankedMemories.slice(0, GRAPH_SEED_COUNT).map((m: any) => m.id).filter(Boolean);
-      if (seedIds.length) {
-        const { data: expanded } = await supabaseAdmin.rpc("graph_expand_memories", {
-          p_user_id: user.id,
-          seed_ids: seedIds,
-          max_hops: GRAPH_MAX_HOPS,
-          max_results: GRAPH_MAX_EXPANDED_MEMORIES,
-        });
-        const known = new Set(rankedMemories.map((m: any) => m.id));
-        const exItems = (expanded || [])
-          .filter((e: any) => !known.has(e.id))
-          .map((e: any) => ({ ...e, hybrid_score: e.hops === 1 ? 0.4 : 0.25, graph_expanded: true }));
-        rankedExpanded = rankResults(exItems, parsedQuery.intent, parsedQuery.entities, temporal);
-      }
-    } catch (_e) {
-      log.warn("graph_expansion_failed");
+    // Compute graph intent for graph rendering
+    let graphIntent = 'general';
+    const queryLower = query.toLowerCase();
+    if (queryLower.includes('block') || queryLower.includes('depend') || queryLower.includes('require')) {
+      graphIntent = 'blocking';
+    } else if (queryLower.includes('who') || queryLower.includes('whom')) {
+      graphIntent = 'who';
+    } else if (queryLower.includes('work') || queryLower.includes('working')) {
+      graphIntent = 'working_on';
     }
 
-    const allRanked = [...rankedMemories, ...rankedEmails, ...rankedEvents, ...rankedExpanded];
+    // Phase 16: graph-based context expansion. Walk the entity graph from
+    // the top retrieved memories to related memories, then rerank them with the
+    // existing ranker. Best-effort; never blocks retrieval.
+    let rankedExpanded: any[] = [];
+    const GRAPH_READ_ENABLED = Deno.env.get("GRAPH_READ_ENABLED") === "true";
+    const GRAPH_RENDER_ENABLED = Deno.env.get("GRAPH_RENDER_ENABLED") === "true";
+
+    const expandSpan = startSpan("retrieve-context", "graph_expansion");
+    if (GRAPH_READ_ENABLED) {
+      try {
+        const seedIds = rankedMemories.slice(0, GRAPH_SEED_COUNT).map((m: any) => m.id).filter(Boolean);
+        if (seedIds.length) {
+          // Resolve memory IDs to graph node IDs
+          const { data: nodes } = await supabaseAdmin.rpc("resolve_nodes_for_memories", {
+            p_user_id: user.id,
+            p_memory_ids: seedIds
+          });
+          
+          if (nodes && nodes.length > 0) {
+            const startNodeIds = nodes.map((n: any) => n.node_id);
+            
+            const traverseStart = Date.now();
+            const { data: relations } = await supabaseAdmin.rpc("graph_render_relations", {
+              p_user_id: user.id,
+              p_start_node_ids: startNodeIds,
+              p_max_hops: GRAPH_MAX_HOPS,
+              p_limit: 5,
+              p_graph_intent: graphIntent
+            });
+            const traverseLatency = Date.now() - traverseStart;
+            expandSpan.setAttribute("graph_render_latency_ms", traverseLatency);
+            expandSpan.setAttribute("graph_relations_rendered", relations?.length || 0);
+            expandSpan.setAttribute("graph_nodes_resolved", nodes.length);
+
+            if (relations && relations.length > 0) {
+              rankedExpanded = relations;
+            }
+          }
+        }
+        expandSpan.end();
+      } catch (_e) {
+        log.warn("graph_expansion_failed");
+        expandSpan.setStatus("error");
+        expandSpan.end();
+      }
+    } else {
+      expandSpan.end();
+    }
+
+    const allRanked = [...rankedMemories, ...rankedEmails, ...rankedEvents];
+    const graphRelations = GRAPH_RENDER_ENABLED ? rankedExpanded : [];
 
     // 5. Assemble Context
-    const assembled = assembleContext(allRanked, 2000, 0.3); // Drop below 0.3 score
+    const assembleSpan = startSpan("retrieve-context", "assemble_context");
+    const assembled = assembleContext(allRanked, graphRelations, 2000, 0.15); // Drop below 0.15 score
+    assembleSpan.setAttribute("final_context_size", assembled.context.length);
+    assembleSpan.end();
 
     // Phase B: reinforce ONLY memories that reached the final assembled context
     // (the rows actually sent to the LLM) — not every above-threshold candidate.
@@ -254,7 +318,7 @@ serve(async (req: Request) => {
       log.warn("retrieval_telemetry_write_failed");
     }
 
-    return new Response(JSON.stringify({
+    return jsonResponse({
       context: assembled.context,
       metadata: { 
         ...assembled.metadata, 
@@ -270,22 +334,17 @@ serve(async (req: Request) => {
       },
       parsed: parsedQuery,
       latencyMs,
-      // Feedback attribution (Phase 13): client echoes these to retrieval-feedback.
       feedback: {
         run_id: retrievalRunId,
         retrieval_version: RETRIEVAL_VERSION,
         candidate_limit: RETRIEVAL_CANDIDATE_LIMIT,
         embedding_model: EMBEDDING_MODEL,
       }
-    }), {
-      status: 200, 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-    });
+    }, 200);
 
   } catch (_error) {
     log.error("unhandled error");
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return jsonResponse({ error: "Internal server error" }, 500);
   }
+  });
 });
