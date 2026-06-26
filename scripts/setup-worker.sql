@@ -67,5 +67,80 @@ BEGIN
       );
     $cron$
   );
+
+  -- gmail-sync: one request per active Google account, every 15 minutes
+  -- (migration 024). Reuses the same Vault secrets and worker secret.
+  PERFORM cron.schedule(
+    'gmail-sync-cron',
+    '*/15 * * * *',
+    $cron$
+      SELECT net.http_post(
+        url     := (SELECT decrypted_secret
+                    FROM vault.decrypted_secrets
+                    WHERE name = 'project_url') || '/functions/v1/gmail-sync',
+        headers := jsonb_build_object(
+          'Content-Type',    'application/json',
+          'x-worker-secret', (SELECT decrypted_secret
+                               FROM vault.decrypted_secrets
+                               WHERE name = 'worker_secret')
+        ),
+        body                := jsonb_build_object('user_id', ca.user_id),
+        timeout_milliseconds := 55000
+      )
+      FROM public.connected_accounts ca
+      WHERE ca.provider = 'google'
+        AND ca.status = 'active';
+    $cron$
+  );
+
+  -- calendar-sync: one request per active Google account, every 15 minutes
+  -- (migration 025). Reuses the same Vault secrets and worker secret.
+  PERFORM cron.schedule(
+    'calendar-sync-cron',
+    '*/15 * * * *',
+    $cron$
+      SELECT net.http_post(
+        url     := (SELECT decrypted_secret
+                    FROM vault.decrypted_secrets
+                    WHERE name = 'project_url') || '/functions/v1/calendar-sync',
+        headers := jsonb_build_object(
+          'Content-Type',    'application/json',
+          'x-worker-secret', (SELECT decrypted_secret
+                               FROM vault.decrypted_secrets
+                               WHERE name = 'worker_secret')
+        ),
+        body                := jsonb_build_object('user_id', ca.user_id),
+        timeout_milliseconds := 55000
+      )
+      FROM public.connected_accounts ca
+      WHERE ca.provider = 'google'
+        AND ca.status = 'active';
+    $cron$
+  );
+
+  -- generate-briefing: one request per active Google account, once daily at
+  -- 08:17 UTC (migration 026). Daily quota + dedup enforce one briefing/day.
+  PERFORM cron.schedule(
+    'briefing-generation-cron',
+    '17 8 * * *',
+    $cron$
+      SELECT net.http_post(
+        url     := (SELECT decrypted_secret
+                    FROM vault.decrypted_secrets
+                    WHERE name = 'project_url') || '/functions/v1/generate-briefing',
+        headers := jsonb_build_object(
+          'Content-Type',    'application/json',
+          'x-worker-secret', (SELECT decrypted_secret
+                               FROM vault.decrypted_secrets
+                               WHERE name = 'worker_secret')
+        ),
+        body                := jsonb_build_object('user_id', ca.user_id),
+        timeout_milliseconds := 55000
+      )
+      FROM public.connected_accounts ca
+      WHERE ca.provider = 'google'
+        AND ca.status = 'active';
+    $cron$
+  );
 END;
 $$;

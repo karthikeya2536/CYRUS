@@ -1,11 +1,14 @@
+import { useEffect, useState } from 'react';
 import { useConnectedAccounts } from '../hooks/useConnectedAccounts';
 import { useEmails } from '../hooks/useEmails';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
+import { useBriefings } from '../hooks/useBriefings';
+import { supabase } from '../lib/supabase';
 import { AppLayout } from '../components/AppLayout';
 import { SkeletonList } from '../components/Skeleton';
 import { EmptyState } from '../components/EmptyState';
 
-function buildNotifications({ googleAccount, emails, events }) {
+function buildNotifications({ googleAccount, slackAccount, notionAccount, emails, events, briefings, failedJobs }) {
   const items = [];
 
   if (!googleAccount) {
@@ -52,6 +55,45 @@ function buildNotifications({ googleAccount, emails, events }) {
     }
   }
 
+  if (slackAccount && slackAccount.status === 'broken') {
+    items.push({
+      id: 'slack-broken',
+      type: 'error',
+      title: 'Slack connection needs attention',
+      body: 'Your Slack connection is broken. Reconnect to resume syncing.',
+      time: slackAccount.connected_at,
+    });
+  }
+
+  if (notionAccount && notionAccount.status === 'broken') {
+    items.push({
+      id: 'notion-broken',
+      type: 'error',
+      title: 'Notion connection needs attention',
+      body: 'Your Notion connection is broken. Reconnect to resume syncing.',
+      time: notionAccount.connected_at,
+    });
+  }
+
+  if (briefings.length > 0) {
+    items.push({
+      id: 'briefings',
+      type: 'info',
+      title: `${briefings.length} briefing${briefings.length === 1 ? '' : 's'} available`,
+      body: `Latest briefing from ${new Date(briefings[0].generated_at).toLocaleDateString()}.`,
+      time: briefings[0].generated_at,
+    });
+  }
+
+  if (failedJobs > 0) {
+    items.push({
+      id: 'failed-jobs',
+      type: 'error',
+      title: `${failedJobs} LLM job${failedJobs === 1 ? '' : 's'} failed`,
+      body: 'Some background processing jobs have failed. Check the worker logs.',
+    });
+  }
+
   return items;
 }
 
@@ -62,12 +104,31 @@ const TYPE_BADGE = {
 };
 
 export default function Notifications() {
-  const { googleAccount, loading: accountsLoading } = useConnectedAccounts();
+  const { googleAccount, slackAccount, notionAccount, loading: accountsLoading } = useConnectedAccounts();
   const { emails, loading: emailsLoading } = useEmails();
   const { events, loading: eventsLoading } = useCalendarEvents();
+  const { briefings, loading: briefingsLoading } = useBriefings();
+  const [failedJobs, setFailedJobs] = useState(0);
 
-  const loading = accountsLoading || emailsLoading || eventsLoading;
-  const notifications = loading ? [] : buildNotifications({ googleAccount, emails, events });
+  const loading = accountsLoading || emailsLoading || eventsLoading || briefingsLoading;
+
+  useEffect(() => {
+    async function fetchFailedJobs() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('llm_jobs')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'permanently_failed');
+      if (data) setFailedJobs(data.length);
+    }
+    fetchFailedJobs();
+  }, []);
+
+  const notifications = loading ? [] : buildNotifications({
+    googleAccount, slackAccount, notionAccount, emails, events, briefings, failedJobs
+  });
 
   return (
     <AppLayout>

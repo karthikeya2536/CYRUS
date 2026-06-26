@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders } from "../_shared/cors.ts";
 import { isPayloadTooLarge } from "../_shared/payload.ts";
-import { isAllowedRedirectUri } from "../_shared/validators.ts";
+import { isAllowedRedirectUri, sha256Hex } from "../_shared/validators.ts";
 import { getUserPlan, planAllowsIntegration } from "../_shared/plans.ts";
 import { createLogger, newRequestId } from "../_shared/log.ts";
 
@@ -72,13 +72,15 @@ serve(async (req: Request) => {
       return jsonResponse({ error: "Notion integration requires the Business plan. Please upgrade.", code: "upgrade_required" }, 402);
     }
 
-    // Validate OAuth state server-side (single-use, unexpired)
+    // Validate OAuth state server-side (single-use, unexpired). States are
+    // stored hashed at rest, so look up by the hash of the incoming state.
+    const stateHash = await sha256Hex(state);
     const { data: stateRecord, error: stateError } = await supabaseAdmin
       .from("oauth_states")
-      .select("id, expires_at, used_at")
+      .select("id, expires_at, used_at, redirect_uri")
       .eq("user_id", user.id)
       .eq("provider", "notion")
-      .eq("state", state)
+      .eq("state_hash", stateHash)
       .is("used_at", null)
       .maybeSingle();
 
@@ -88,6 +90,10 @@ serve(async (req: Request) => {
     const now = new Date();
     if (now > new Date(stateRecord.expires_at)) {
       return jsonResponse({ error: "OAuth state has expired. Please try connecting Notion again." }, 400);
+    }
+
+    if (stateRecord.redirect_uri && stateRecord.redirect_uri !== redirect_uri) {
+      return jsonResponse({ error: "redirect_uri mismatch. Please try connecting Notion again." }, 400);
     }
 
     const { error: markUsedError } = await supabaseAdmin

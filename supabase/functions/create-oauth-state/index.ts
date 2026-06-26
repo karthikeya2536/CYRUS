@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders } from "../_shared/cors.ts";
 import { isPayloadTooLarge } from "../_shared/payload.ts";
 import { checkRateLimit } from "../_shared/rateLimit.ts";
-import { isSupportedProvider } from "../_shared/validators.ts";
+import { isSupportedProvider, isAllowedRedirectUri, sha256Hex } from "../_shared/validators.ts";
 import { createLogger, newRequestId } from "../_shared/log.ts";
 
 // Generate cryptographically secure random state
@@ -45,7 +45,7 @@ serve(async (req: Request) => {
     } catch {
       return jsonResponse({ error: "Invalid JSON body" }, 400);
     }
-    const { provider } = body as { provider?: string };
+    const { provider, redirect_uri } = body as { provider?: string; redirect_uri?: string };
 
     if (!provider) {
       return jsonResponse({ error: "Missing provider" }, 400);
@@ -53,6 +53,16 @@ serve(async (req: Request) => {
 
     if (!isSupportedProvider(provider)) {
       return jsonResponse({ error: "Unsupported provider" }, 400);
+    }
+
+    // The callback redirect_uri is captured now and stored on the state row so
+    // the exchange can bind the callback to the redirect_uri used at initiation.
+    if (!redirect_uri) {
+      return jsonResponse({ error: "Missing redirect_uri" }, 400);
+    }
+    const allowedRedirectUris = Deno.env.get("ALLOWED_REDIRECT_URIS");
+    if (!isAllowedRedirectUri(redirect_uri, allowedRedirectUris)) {
+      return jsonResponse({ error: "Invalid redirect_uri. Please contact the administrator." }, 400);
     }
 
     // Verify the user's JWT from the Authorization header
@@ -83,8 +93,9 @@ serve(async (req: Request) => {
       return jsonResponse({ error: "Rate limit exceeded. Try again shortly." }, 429);
     }
 
-    // Generate cryptographically secure state
+    // Generate cryptographically secure state; store only its hash at rest.
     const state = generateSecureState();
+    const stateHash = await sha256Hex(state);
 
     // Calculate expiry time
     const expiresAt = new Date(Date.now() + STATE_EXPIRY_MINUTES * 60 * 1000).toISOString();
@@ -98,24 +109,37 @@ serve(async (req: Request) => {
       .is("used_at", null);
 
     if (cleanupError) {
-      log.warn("oauth_state cleanup failed");
+      log.warn("oauth_state cleanup failed", {
+        message: cleanupError.message,
+        details: cleanupError.details,
+        hint: cleanupError.hint,
+        code: cleanupError.code,
+      });
       // Continue anyway
     }
 
     // Store the new state
+    log.error("DEPLOY_TEST_V2_STATE_HASH");
     const { error: insertError } = await supabaseAdmin
       .from("oauth_states")
       .insert({
         user_id: user.id,
         provider,
-        state,
+        state_hash: stateHash,
+        redirect_uri,
         expires_at: expiresAt,
       });
 
     if (insertError) {
-      log.error("oauth_state insert failed");
-      return jsonResponse({ error: "Failed to create OAuth state" }, 500);
-    }
+  log.error("oauth_state insert failed", {
+    message: insertError.message,
+    details: insertError.details,
+    hint: insertError.hint,
+    code: insertError.code,
+  });
+
+  return jsonResponse({ error: "Failed to create OAuth state" }, 500);
+}
 
     return jsonResponse({ state, expires_at: expiresAt });
 

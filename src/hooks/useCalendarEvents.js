@@ -15,10 +15,15 @@ export function useCalendarEvents() {
       setLoading(false);
       return;
     }
+    const now = new Date();
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
     const { data, error } = await supabase
       .from('calendar_events')
       .select('*')
       .eq('user_id', user.id)
+      .gte('start_time', now.toISOString())
+      .lte('start_time', thirtyDaysFromNow.toISOString())
       .order('start_time', { ascending: true });
 
     if (!error && data) {

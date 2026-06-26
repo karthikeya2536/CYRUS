@@ -122,21 +122,29 @@ export default function Integrations() {
                 </div>
               </div>
               {googleAccount ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                  <span className="badge badge-success">Connected</span>
-                  <button
-                    onClick={handleDisconnect}
-                    disabled={disconnecting}
-                    className="btn btn-danger btn-sm"
-                  >
-                    {disconnecting ? (
-                      <>
-                        <span className="spinner" aria-hidden="true" /> Disconnecting…
-                      </>
-                    ) : (
-                      'Disconnect'
-                    )}
-                  </button>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
+                    <span className={`badge ${googleAccount.status === 'broken' ? 'badge-danger' : 'badge-success'}`}>
+                      {googleAccount.status === 'broken' ? 'Broken' : 'Connected'}
+                    </span>
+                    <button
+                      onClick={handleDisconnect}
+                      disabled={disconnecting}
+                      className="btn btn-danger btn-sm"
+                    >
+                      {disconnecting ? (
+                        <>
+                          <span className="spinner" aria-hidden="true" /> Disconnecting…
+                        </>
+                      ) : (
+                        'Disconnect'
+                      )}
+                    </button>
+                  </div>
+                  {googleAccount.last_synced_at && (
+                    <p className="text-xs muted">Last sync: {new Date(googleAccount.last_synced_at).toLocaleString()}</p>
+                  )}
+                  <p className="text-xs muted">Connected: {new Date(googleAccount.connected_at).toLocaleDateString()}</p>
                 </div>
               ) : (
                 <button onClick={handleConnect} disabled={connecting} className="btn btn-primary btn-sm">
@@ -165,21 +173,29 @@ export default function Integrations() {
                 </div>
               </div>
               {slackAccount ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                  <span className="badge badge-success">Connected</span>
-                  <button
-                    onClick={handleSlackDisconnect}
-                    disabled={slackDisconnecting}
-                    className="btn btn-danger btn-sm"
-                  >
-                    {slackDisconnecting ? (
-                      <>
-                        <span className="spinner" aria-hidden="true" /> Disconnecting…
-                      </>
-                    ) : (
-                      'Disconnect'
-                    )}
-                  </button>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
+                    <span className={`badge ${slackAccount.status === 'broken' ? 'badge-danger' : 'badge-success'}`}>
+                      {slackAccount.status === 'broken' ? 'Broken' : 'Connected'}
+                    </span>
+                    <button
+                      onClick={handleSlackDisconnect}
+                      disabled={slackDisconnecting}
+                      className="btn btn-danger btn-sm"
+                    >
+                      {slackDisconnecting ? (
+                        <>
+                          <span className="spinner" aria-hidden="true" /> Disconnecting…
+                        </>
+                      ) : (
+                        'Disconnect'
+                      )}
+                    </button>
+                  </div>
+                  {slackAccount.last_synced_at && (
+                    <p className="text-xs muted">Last sync: {new Date(slackAccount.last_synced_at).toLocaleString()}</p>
+                  )}
+                  <p className="text-xs muted">Connected: {new Date(slackAccount.connected_at).toLocaleDateString()}</p>
                 </div>
               ) : (
                 <button onClick={handleSlackConnect} disabled={slackConnecting} className="btn btn-primary btn-sm">
@@ -208,21 +224,29 @@ export default function Integrations() {
                 </div>
               </div>
               {notionAccount ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                  <span className="badge badge-success">Connected</span>
-                  <button
-                    onClick={handleNotionDisconnect}
-                    disabled={notionDisconnecting}
-                    className="btn btn-danger btn-sm"
-                  >
-                    {notionDisconnecting ? (
-                      <>
-                        <span className="spinner" aria-hidden="true" /> Disconnecting…
-                      </>
-                    ) : (
-                      'Disconnect'
-                    )}
-                  </button>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
+                    <span className={`badge ${notionAccount.status === 'broken' ? 'badge-danger' : 'badge-success'}`}>
+                      {notionAccount.status === 'broken' ? 'Broken' : 'Connected'}
+                    </span>
+                    <button
+                      onClick={handleNotionDisconnect}
+                      disabled={notionDisconnecting}
+                      className="btn btn-danger btn-sm"
+                    >
+                      {notionDisconnecting ? (
+                        <>
+                          <span className="spinner" aria-hidden="true" /> Disconnecting…
+                        </>
+                      ) : (
+                        'Disconnect'
+                      )}
+                    </button>
+                  </div>
+                  {notionAccount.last_synced_at && (
+                    <p className="text-xs muted">Last sync: {new Date(notionAccount.last_synced_at).toLocaleString()}</p>
+                  )}
+                  <p className="text-xs muted">Connected: {new Date(notionAccount.connected_at).toLocaleDateString()}</p>
                 </div>
               ) : (
                 <button onClick={handleNotionConnect} disabled={notionConnecting} className="btn btn-primary btn-sm">

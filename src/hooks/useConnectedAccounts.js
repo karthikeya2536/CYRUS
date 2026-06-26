@@ -42,7 +42,7 @@ export function useConnectedAccounts() {
 
     // Get cryptographically secure state from server
     const { data, error: fnError } = await supabase.functions.invoke('create-oauth-state', {
-      body: { provider: 'google' },
+      body: { provider: 'google', redirect_uri: redirectUri },
     });
 
     if (fnError || !data?.state) {
@@ -126,7 +126,7 @@ export function useConnectedAccounts() {
     const userScope = encodeURIComponent('search:read');
 
     const { data, error: fnError } = await supabase.functions.invoke('create-oauth-state', {
-      body: { provider: 'slack' },
+      body: { provider: 'slack', redirect_uri: redirectUri },
     });
 
     if (fnError || !data?.state) {
@@ -192,7 +192,7 @@ export function useConnectedAccounts() {
     const redirectUri = `${window.location.origin}/auth/notion/callback`;
 
     const { data, error: fnError } = await supabase.functions.invoke('create-oauth-state', {
-      body: { provider: 'notion' },
+      body: { provider: 'notion', redirect_uri: redirectUri },
     });
 
     if (fnError || !data?.state) {

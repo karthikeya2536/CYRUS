@@ -372,12 +372,13 @@ async function test8_RetrievalLatency(supabaseAdmin: any, userId: string) {
   try {
     // Test memory loading
     const memoryStart = Date.now();
-    const { data: memories } = await supabaseAdmin
+    const { data: memories, error: memoriesError } = await supabaseAdmin
       .from('memory_records')
       .select('*')
       .eq('user_id', userId)
       .eq('active', true)
       .limit(100);
+    if (memoriesError) throw memoriesError;
     results.memoryLoadMs = Date.now() - memoryStart;
 
     // Test briefing loading

@@ -257,6 +257,8 @@ Deno.test("ndcgAtK normalizes DCG by ideal DCG", () => {
 Run: `deno test --allow-read supabase/functions/retrieve-context/eval/metrics.test.ts`
 Expected: FAIL — `Module not found "./metrics.ts"`.
 
+
+
 - [ ] **Step 3: Write minimal implementation**
 
 Create `supabase/functions/retrieve-context/eval/metrics.ts`:

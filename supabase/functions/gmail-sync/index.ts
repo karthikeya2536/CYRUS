@@ -71,12 +71,32 @@ serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return jsonResponse({ error: "Missing authorization header" }, 401);
-    }
+  let userId: string | null = null;
+  let supabaseAdmin: any = null;
 
+  // TD-001: persist sync failures on the account so a silently failing scheduled
+  // sync is visible. markBroken=true only for token/auth failures that require a
+  // reconnect; transient API errors are recorded WITHOUT flipping status so the
+  // scheduled sync (which only targets status='active') keeps retrying.
+  async function recordSyncError(message: string, markBroken = false) {
+    if (!supabaseAdmin || !userId) return;
+    try {
+      const patch: Record<string, unknown> = {
+        last_sync_error: message.slice(0, 500),
+        last_sync_error_at: new Date().toISOString(),
+      };
+      if (markBroken) patch.status = "broken";
+      await supabaseAdmin
+        .from("connected_accounts")
+        .update(patch)
+        .eq("user_id", userId)
+        .eq("provider", "google");
+    } catch (_e) {
+      log.warn("record_sync_error_failed");
+    }
+  }
+
+  try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -87,27 +107,54 @@ serve(async (req: Request) => {
       return jsonResponse({ error: "Missing Google OAuth credentials." }, 500);
     }
 
-    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
-    if (userError || !user) {
-      return jsonResponse({ error: "Invalid user token" }, 401);
-    }
+    // Resolve the target user. Two authenticated invocation paths:
+    //   1. System (pg_cron -> pg_net): x-worker-secret header matches
+    //      WORKER_SECRET; the target user_id is supplied in the request body.
+    //      Same secret/header pattern as llm-worker. No rate limit here.
+    //   2. User request: caller's JWT is validated via getUser() (anon client),
+    //      then rate-limited per user. Sync logic below is identical for both.
+    const workerSecret = req.headers.get("x-worker-secret");
+    const expectedWorkerSecret = Deno.env.get("WORKER_SECRET");
 
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    if (workerSecret && expectedWorkerSecret && workerSecret === expectedWorkerSecret) {
+      let body: { user_id?: string } = {};
+      try {
+        body = await req.json();
+      } catch (_e) { /* empty/invalid body falls through to the check below */ }
+      if (!body?.user_id) {
+        return jsonResponse({ error: "Missing user_id for system invocation." }, 400);
+      }
+      userId = body.user_id;
+    } else {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) {
+        return jsonResponse({ error: "Missing authorization header" }, 401);
+      }
 
-    const rl = await checkRateLimit(supabaseAdmin, user.id, "gmail-sync", RATE_LIMIT_PER_MIN);
-    if (rl.limited) {
-      return jsonResponse({ error: "Rate limit exceeded. Try again shortly." }, 429);
+      const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+
+      const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+      if (userError || !user) {
+        return jsonResponse({ error: "Invalid user token" }, 401);
+      }
+
+      const rl = await checkRateLimit(supabaseAdmin, user.id, "gmail-sync", RATE_LIMIT_PER_MIN);
+      if (rl.limited) {
+        return jsonResponse({ error: "Rate limit exceeded. Try again shortly." }, 429);
+      }
+
+      userId = user.id;
     }
 
     // Get integration secrets
     const { data: secretData, error: secretErr } = await supabaseAdmin
       .from("integration_secrets")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("provider", "google")
       .single();
 
@@ -130,7 +177,7 @@ serve(async (req: Request) => {
     if (isExpired || !accessToken) {
       if (!secretData.refresh_token) {
         log.warn("TOKEN_REFRESH_FAILED");
-        await supabaseAdmin.from("connected_accounts").update({ status: 'broken' }).eq('user_id', user.id).eq('provider', 'google');
+        await recordSyncError("Token expired and no refresh token available. Reconnect required.", true);
         return jsonResponse({ error: "Token expired and no refresh token available. Reconnect required." }, 401);
       }
 
@@ -150,13 +197,13 @@ serve(async (req: Request) => {
         tokenData = await tokenResponse.json();
       } catch (_e) {
         log.warn("TOKEN_REFRESH_FAILED");
-        await supabaseAdmin.from("connected_accounts").update({ status: 'broken' }).eq('user_id', user.id).eq('provider', 'google');
+        await recordSyncError("Token refresh failed: unparseable response from Google.", true);
         return jsonResponse({ error: "Refresh failed: Unparseable response from Google." }, 401);
       }
 
       if (!tokenResponse.ok || tokenData.error || !tokenData.access_token) {
         log.warn("TOKEN_REFRESH_FAILED");
-        await supabaseAdmin.from("connected_accounts").update({ status: 'broken' }).eq('user_id', user.id).eq('provider', 'google');
+        await recordSyncError(`Token refresh failed: ${tokenData.error_description || tokenData.error || "missing access token"}`, true);
         return jsonResponse({ error: `Refresh failed: ${tokenData.error_description || tokenData.error || "Missing access token"}` }, 401);
       }
 
@@ -179,7 +226,7 @@ serve(async (req: Request) => {
 
       if (secretUpdateErr) {
         log.error("TOKEN_PERSIST_FAILED");
-        await supabaseAdmin.from("connected_accounts").update({ status: 'broken' }).eq('user_id', user.id).eq('provider', 'google');
+        await recordSyncError("Failed to persist refreshed token.", true);
         return jsonResponse({ error: "Failed to persist refreshed token." }, 500);
       }
 
@@ -199,6 +246,7 @@ serve(async (req: Request) => {
         const errData = await messagesRes.json();
         if (errData.error?.message) errMessage = errData.error.message;
       } catch (e) {}
+      await recordSyncError(`Gmail API error: ${errMessage}`);
       return jsonResponse({ error: `Gmail API error: ${errMessage}` }, 500);
     }
 
@@ -206,6 +254,7 @@ serve(async (req: Request) => {
     try {
       messagesData = await messagesRes.json();
     } catch (e) {
+      await recordSyncError("Gmail API error: failed to parse JSON response.");
       return jsonResponse({ error: `Gmail API error: Failed to parse JSON response.` }, 500);
     }
 
@@ -252,7 +301,7 @@ serve(async (req: Request) => {
 
       try {
         await supabaseAdmin.from("emails").upsert({
-          user_id: user.id,
+          user_id: userId,
           gmail_message_id: msgDetail.id,
           thread_id: msgDetail.threadId,
           sender,
@@ -272,16 +321,44 @@ serve(async (req: Request) => {
       }
     }
 
-    // Update last_synced_at
+    // Update last_synced_at and clear any prior sync error.
     await supabaseAdmin.from("connected_accounts")
-      .update({ last_synced_at: new Date().toISOString(), status: 'active' })
-      .eq('user_id', user.id)
+      .update({ last_synced_at: new Date().toISOString(), status: 'active', last_sync_error: null, last_sync_error_at: null })
+      .eq('user_id', userId)
       .eq('provider', 'google');
+
+    // C3: after a sync that ingested new data, enqueue memory extraction.
+    // Reuses the llm_jobs queue + llm-worker and the SAME idempotency guard as
+    // the memory-extraction function: skip if one is already pending/processing
+    // for this user. Best-effort — never fails the sync response.
+    if (syncedCount > 0) {
+      try {
+        const { data: existingJobs } = await supabaseAdmin
+          .from("llm_jobs")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("job_type", "memory_extraction")
+          .in("status", ["pending", "processing"])
+          .limit(1);
+        if (!existingJobs || existingJobs.length === 0) {
+          await supabaseAdmin.from("llm_jobs").insert({
+            user_id: userId,
+            job_type: "memory_extraction",
+            priority: 2,
+            status: "pending",
+            payload: { request_id: requestId, source: "gmail-sync" }
+          });
+        }
+      } catch (_e) {
+        log.warn("extraction_enqueue_failed");
+      }
+    }
 
     return jsonResponse({ success: true, syncedCount });
 
   } catch (_err) {
     log.error("unhandled error");
+    await recordSyncError("Unexpected error during Gmail sync.");
     return jsonResponse({ error: "Internal server error" }, 500);
   }
 });

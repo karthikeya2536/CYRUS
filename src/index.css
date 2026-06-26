@@ -921,6 +921,33 @@ select:focus {
   font-size: var(--text-sm);
   color: var(--text-default);
 }
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-3);
+}
+.stat-card {
+  background: var(--surface-raised);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.stat-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.stat-value {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.stat-value.text-sm {
+  font-size: var(--text-sm);
+}
 .plan-features li::before {
   content: '✓';
   position: absolute;

@@ -5,6 +5,7 @@ import { LLMRouter, supabaseAdmin } from "../_shared/llm-router.ts";
 import { PROMPTS } from "../_shared/prompts.ts";
 import { getUserPlan, PLAN_LIMITS } from "../_shared/plans.ts";
 import { createLogger, newRequestId } from "../_shared/log.ts";
+import { withTraceContext, startSpan, sendBufferedSpans } from "../_shared/trace.ts";
 
 // Hard cap on how many jobs a single worker invocation will process, so one run
 // can never loop unbounded. The worker is invoked repeatedly by the scheduler.
@@ -14,6 +15,10 @@ const MAX_JOBS_PER_RUN = 5;
 // this distance of an existing same-category memory is sent to LLM adjudication.
 // Configurable via env; defaults to 0.15 (very similar).
 const DEDUP_DISTANCE_THRESHOLD = parseFloat(Deno.env.get("DEDUP_DISTANCE_THRESHOLD") ?? "0.15");
+
+// Feature Flags for Phase 034
+const GRAPH_BUILD_ENABLED = Deno.env.get("GRAPH_BUILD_ENABLED") !== "false";
+
 
 // Phase 16: lightweight, deterministic entity extraction for the retrieval
 // graph. Pulls capitalized proper-noun-like tokens/phrases from memory content.
@@ -32,8 +37,18 @@ function extractEntities(text: string): string[] {
 // Module-level logger for processing helpers (no request scope available there).
 const workerLog = createLogger("llm-worker", "worker");
 
-function normalizeKey(str: string) {
-  return str.toLowerCase().replace(/[^a-z0-9]/g, '');
+const MAX_JOBS_PER_BATCH = 50;
+
+const GRAPH_STOP_ENTITIES = new Set([
+  "user", "users", "person", "people", "professional", "speaker", "individual", 
+  "contact", "email", "document", "resource", "project", "task", "event", 
+  "meeting", "communication", "communication_thread", "platform", "organization", 
+  "company", "group", "role", "domain", "technology", "skill", "date", 
+  "artifact", "location", "application", "process"
+]);
+
+export function normalizeKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 async function sha256(message: string) {
@@ -339,6 +354,14 @@ async function processMemoryExtraction(job: any) {
             deadline_at: finalDeadlineAt
           }).eq("id", existing.id);
           updated++;
+          if (GRAPH_BUILD_ENABLED) {
+            await supabaseAdmin.from("llm_jobs").insert({
+              user_id,
+              job_type: "graph_construction",
+              priority: 4,
+              payload: { memory_id: existing.id, content: finalContent, expires_at: finalExpiresAt }
+            });
+          }
         }
       } else {
         // Enforce plan storage cap on new memories (updates above are exempt).
@@ -411,6 +434,14 @@ async function processMemoryExtraction(job: any) {
                 });
                 merged = true;
                 updated++;
+                if (GRAPH_BUILD_ENABLED) {
+                  await supabaseAdmin.from("llm_jobs").insert({
+                    user_id,
+                    job_type: "graph_construction",
+                    priority: 4,
+                    payload: { memory_id: top.id, content: finalContent, expires_at: finalExpiresAt }
+                  });
+                }
               }
             }
           } catch (_e) {
@@ -469,6 +500,14 @@ async function processMemoryExtraction(job: any) {
                 payload: { table: "memory_records", id: newMem.id, content: `${mem.category}: ${finalContent}` }
               });
             }
+            if (GRAPH_BUILD_ENABLED) {
+              await supabaseAdmin.from("llm_jobs").insert({
+                user_id,
+                job_type: "graph_construction",
+                priority: 4,
+                payload: { memory_id: newMem.id, content: finalContent, expires_at: finalExpiresAt }
+              });
+            }
           }
         }
       }
@@ -498,6 +537,117 @@ async function processGenerateEmbedding(job: any) {
   return { success: true, table, id };
 }
 
+async function processGraphConstruction(job: any) {
+  const { memory_id, content, expires_at } = job.payload;
+  if (!memory_id || !content) {
+    throw new Error("Missing memory_id or content in graph_construction job");
+  }
+
+  const result = await LLMRouter.execute({
+    systemPrompt: PROMPTS.GRAPH_EXTRACTION_SYSTEM,
+    userPrompt: `Memory Content: ${content}`,
+    expectedFormat: "json"
+  });
+
+  let graphData;
+  try {
+    let jsonStr = result.content;
+    const match = jsonStr.match(/\\{.*\\}/s);
+    if (match) jsonStr = match[0];
+    graphData = JSON.parse(jsonStr);
+  } catch (e) {
+    workerLog.warn("graph_extraction_json_parse_failed");
+    return { success: false, reason: "parse_failed" };
+  }
+
+  const nodes = graphData.nodes || [];
+  const edges = graphData.edges || [];
+  let nodesCreated = 0;
+  let edgesCreated = 0;
+  const touchedNodeIds = new Set<string>();
+
+  for (const node of nodes) {
+    if (!node.id || !node.type) continue;
+    const nodeKey = normalizeKey(node.id);
+    const isStopEntity = GRAPH_STOP_ENTITIES.has(nodeKey);
+    const { data: nData } = await supabaseAdmin.from("graph_nodes").upsert(
+      { user_id: job.user_id, node_key: nodeKey, node_type: node.type, is_stop_entity: isStopEntity },
+      { onConflict: "user_id,node_key" }
+    ).select("id").single();
+    
+    if (nData) {
+      nodesCreated++;
+      touchedNodeIds.add(nData.id);
+      await supabaseAdmin.from("graph_node_members").upsert(
+        { node_id: nData.id, memory_id },
+        { onConflict: "node_id,memory_id" }
+      );
+      
+      if (node.original_id) {
+        const originalKey = normalizeKey(node.original_id);
+        if (originalKey !== nodeKey) {
+          await supabaseAdmin.from("graph_merge_audit").insert({
+            user_id: job.user_id,
+            source_node_key: originalKey,
+            target_node_key: nodeKey,
+            reason: "LLM Canonical Merge",
+            confidence: 1.0
+          });
+        }
+      }
+    }
+  }
+
+  for (const edge of edges) {
+    if (!edge.source || !edge.target || !edge.relationship || edge.confidence < 0.30) continue;
+    
+    // Resolve nodes
+    const srcKey = normalizeKey(edge.source);
+    const tgtKey = normalizeKey(edge.target);
+    const { data: srcNode } = await supabaseAdmin.from("graph_nodes").select("id").eq("user_id", job.user_id).eq("node_key", srcKey).single();
+    const { data: tgtNode } = await supabaseAdmin.from("graph_nodes").select("id").eq("user_id", job.user_id).eq("node_key", tgtKey).single();
+
+    if (srcNode && tgtNode) {
+      touchedNodeIds.add(srcNode.id);
+      touchedNodeIds.add(tgtNode.id);
+      const { data: edgeData } = await supabaseAdmin.from("graph_edges").upsert(
+        { 
+          user_id: job.user_id, 
+          source_node_id: srcNode.id, 
+          target_node_id: tgtNode.id, 
+          relationship_type: edge.relationship,
+          confidence: edge.confidence,
+          expires_at: expires_at,
+          last_evidence_at: new Date().toISOString()
+        },
+        { onConflict: "source_node_id,target_node_id,relationship_type" }
+      ).select("id").single();
+
+      if (edgeData) {
+        edgesCreated++;
+        await supabaseAdmin.from("edge_evidence").upsert(
+          { edge_id: edgeData.id, memory_id, evidence_type: edge.evidence_type || "inferred" },
+          { onConflict: "edge_id,memory_id" }
+        );
+      }
+    }
+  }
+
+  if (touchedNodeIds.size > 0) {
+    await supabaseAdmin.rpc("update_graph_node_scores", { node_ids: Array.from(touchedNodeIds) });
+  }
+
+  await supabaseAdmin.from("graph_build_audit").insert({
+    user_id: job.user_id,
+    memory_id,
+    status: "success",
+    nodes_created: nodesCreated,
+    edges_created: edgesCreated
+  });
+
+  return { success: true, memory_id, nodesCreated, edgesCreated };
+}
+
 async function processBriefingGeneration(job: any) {
   const user_id = job.user_id;
 
@@ -511,16 +661,25 @@ async function processBriefingGeneration(job: any) {
 
   const now = new Date().toISOString();
   const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data: events, error: eventsError } = await supabaseAdmin
+  const { data: rawEvents, error: eventsError } = await supabaseAdmin
     .from("calendar_events")
     .select("*")
     .eq("user_id", user_id)
     .gte("start_time", now)
-    .lte("start_time", sevenDaysFromNow)
+    .lte("start_time", thirtyDaysFromNow)
     .order("start_time", { ascending: true })
-    .limit(10);
+    .limit(50);
   if (eventsError) throw eventsError;
+
+  // Filter extended window (7-30 days) for important keywords only
+  const importantKeywords = ["important", "high importance", "deadline", "exam", "interview", "meeting", "travel", "payment", "contract"];
+  const events = (rawEvents || []).filter(e => {
+    if (e.start_time <= sevenDaysFromNow) return true;
+    const text = ((e.title || "") + " " + (e.description || "")).toLowerCase();
+    return importantKeywords.some(kw => text.includes(kw));
+  }).slice(0, 15);
 
   const { data: memories, error: memoriesError } = await supabaseAdmin
     .from("memory_records")
@@ -559,9 +718,10 @@ async function processBriefingGeneration(job: any) {
   let verifierProvider = "rule-engine";
   const generation_metadata: any = { latency: {} };
 
+  // CACHE BUSTER: fix date grounding format for LLM
   const draftResult = await LLMRouter.execute({
     systemPrompt: PROMPTS.BRIEFING_DRAFT_SYSTEM,
-    userPrompt: `Emails:\n${emailPayload}\n\nEvents:\n${eventPayload}\n\nSlack Messages:\n${slackPayload}\n\nNotion Pages:\n${notionPayload}\n\nMemories:\n${memoryPayload}`
+    userPrompt: `Today's Date: ${now.split('T')[0]}\nCurrent Time: ${now}\n\nEmails:\n${emailPayload}\n\nEvents:\n${eventPayload}\n\nSlack Messages:\n${slackPayload}\n\nNotion Pages:\n${notionPayload}\n\nMemories:\n${memoryPayload}`
   });
 
   generatorProvider = draftResult.provider;
@@ -706,31 +866,51 @@ serve(async (req: Request) => {
       processed++;
       // Continue the request_id chain from the enqueuing function when present.
       const jobRequestId = updatedJob.payload?.request_id || requestId;
+      const jobTraceId = updatedJob.trace_id || crypto.randomUUID();
       const jobLog = createLogger("llm-worker", jobRequestId);
 
       try {
-        let resultData = null;
-        if (updatedJob.job_type === "memory_extraction") {
-          resultData = await processMemoryExtraction(updatedJob);
-        } else if (updatedJob.job_type === "briefing_generation") {
-          resultData = await processBriefingGeneration(updatedJob);
-        } else if (updatedJob.job_type === "generate_embedding") {
-          resultData = await processGenerateEmbedding(updatedJob);
-        } else {
-          throw new Error(`Unknown job type: ${updatedJob.job_type}`);
-        }
+        await withTraceContext({ trace_id: jobTraceId, span_id: crypto.randomUUID() }, async () => {
+          const workerSpan = startSpan("llm-worker", "process_job", {
+            span_kind: "server",
+            job_id: updatedJob.id,
+            user_id: updatedJob.user_id,
+          });
+          
+          try {
+            let resultData = null;
+            if (updatedJob.job_type === "memory_extraction") {
+              resultData = await processMemoryExtraction(updatedJob);
+            } else if (updatedJob.job_type === "briefing_generation") {
+              resultData = await processBriefingGeneration(updatedJob);
+            } else if (updatedJob.job_type === "generate_embedding") {
+              resultData = await processGenerateEmbedding(updatedJob);
+            } else if (updatedJob.job_type === "graph_construction") {
+              resultData = await processGraphConstruction(updatedJob);
+            } else {
+              throw new Error(`Unknown job type: ${updatedJob.job_type}`);
+            }
 
-        // 3. Mark completed
-        await supabaseAdmin
-          .from("llm_jobs")
-          .update({
-            status: "completed",
-            completed_at: new Date().toISOString(),
-            result: resultData
-          })
-          .eq("id", updatedJob.id);
+            // 3. Mark completed
+            await supabaseAdmin
+              .from("llm_jobs")
+              .update({
+                status: "completed",
+                completed_at: new Date().toISOString(),
+                result: resultData
+              })
+              .eq("id", updatedJob.id);
 
-        completed.push(updatedJob.id);
+            completed.push(updatedJob.id);
+            workerSpan.setStatus("ok");
+          } catch (err) {
+            workerSpan.setStatus("error", String(err));
+            throw err;
+          } finally {
+            workerSpan.end();
+            await sendBufferedSpans(supabaseAdmin);
+          }
+        });
 
       } catch (jobErr: any) {
         jobLog.error("job_processing_failed", { job_id: updatedJob.id, job_type: updatedJob.job_type });

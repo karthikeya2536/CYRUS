@@ -4,6 +4,9 @@ import { useTheme } from '../hooks/useTheme';
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard' },
+  { to: '/search', label: 'Search' },
+  { to: '/memories', label: 'Memories' },
+  { to: '/briefings', label: 'Briefings' },
   { to: '/notifications', label: 'Notifications' },
   { to: '/integrations', label: 'Integrations' },
   { to: '/billing', label: 'Billing' },

@@ -1,0 +1,1 @@
+INSERT INTO llm_jobs (user_id, job_type, payload) VALUES ('3d1cfdbd-8676-44c3-a873-c3abf0988d5f', 'memory_extraction', '{"content": "Met with Sundar Pichai regarding Gemini deployment.", "source_id": "test-3", "source_type": "text"}'::jsonb);

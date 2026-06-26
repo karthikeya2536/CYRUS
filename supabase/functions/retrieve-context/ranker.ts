@@ -56,6 +56,7 @@ export const W_URG = 0.20;
 export const W_IMP = 0.15;
 export const W_REC = 0.10;
 export const W_REINF = 0.05;
+export const W_GRAPH = 0;
 
 export const RECENCY_HALFLIFE_DAYS = 30;
 export const REINF_CAP = 50;

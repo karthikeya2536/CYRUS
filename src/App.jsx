@@ -4,6 +4,9 @@ import { ToastProvider } from './components/Toast';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
+import Memories from './pages/Memories';
+import Briefings from './pages/Briefings';
+import Search from './pages/Search';
 import GoogleCallback from './pages/GoogleCallback';
 import SlackCallback from './pages/SlackCallback';
 import NotionCallback from './pages/NotionCallback';
@@ -34,6 +37,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <Onboarding />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/search"
+            element={
+              <ProtectedRoute>
+                <Search />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/memories"
+            element={
+              <ProtectedRoute>
+                <Memories />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/briefings"
+            element={
+              <ProtectedRoute>
+                <Briefings />
               </ProtectedRoute>
             }
           />

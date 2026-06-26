@@ -153,7 +153,8 @@ Upcoming:
 | `7 ≥ d > 3`          | 0.7     |
 | `3 ≥ d ≥ 0`          | 1.0     |
 
-Post-deadline (overdue, `d` negative → `late = -d` days late):
+Post-deadline (overdue, `d` nega
+tive → `late = -d` days late):
 
 | Days late `late` | urgency |
 |------------------|---------|

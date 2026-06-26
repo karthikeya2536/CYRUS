@@ -1,4 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { estimateCost } from "./pricing.ts";
+import { getCurrentTrace } from "./trace.ts";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -23,7 +25,13 @@ interface LLMRequest {
 interface LLMResponse {
   content: string;
   provider: string;
+  model: string;
   latencyMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  costEstimate: number;
+  estimated?: boolean;
 }
 
 export class LLMRouter {
@@ -42,7 +50,7 @@ export class LLMRouter {
     return data;
   }
 
-  private static async updateProviderHealth(provider: string, status: 'success' | 'failure' | 'timeout' | 'rate_limit') {
+  private static async updateProviderHealth(provider: string, status: 'success' | 'failure' | 'timeout' | 'rate_limit', stats?: { tokens: number, cost: number, latencyMs: number, errorMsg?: string }) {
     const health = await this.getProviderHealth(provider);
     const updates: any = {};
     const now = new Date().toISOString();
@@ -67,12 +75,21 @@ export class LLMRouter {
       if (status === 'rate_limit') {
         updates.cooldown_until = new Date(Date.now() + 60 * 1000).toISOString(); // 1 min cooldown
       }
+      if (stats?.errorMsg) updates.last_error = stats.errorMsg;
+    }
+
+    if (stats) {
+      updates.total_tokens = (health.total_tokens || 0) + stats.tokens;
+      updates.total_cost = (health.total_cost || 0) + stats.cost;
+      if (stats.latencyMs > 0) {
+        updates.avg_latency_ms = stats.latencyMs; 
+      }
     }
 
     await supabaseAdmin.from('provider_health').update(updates).eq('provider_name', provider);
   }
 
-  private static async callDirectApi(provider: string, prompt: string): Promise<string> {
+  private static async callDirectApi(provider: string, prompt: string): Promise<{content: string, model: string, inputTokens: number, outputTokens: number, totalTokens: number}> {
     let url = "";
     let apiKey = "";
     let model = provider;
@@ -131,7 +148,48 @@ export class LLMRouter {
       }
 
       const data = await response.json();
-      return data.choices?.[0]?.message?.content || "";
+      
+      let inputTokens = 0;
+      let outputTokens = 0;
+      let totalTokens = 0;
+      let estimated = false;
+      
+      try {
+        if (data.usage?.prompt_tokens !== undefined) {
+          inputTokens = data.usage.prompt_tokens;
+          outputTokens = data.usage.completion_tokens || 0;
+          totalTokens = data.usage.total_tokens || (inputTokens + outputTokens);
+        } else if (data.usage?.total_tokens !== undefined) {
+          totalTokens = data.usage.total_tokens;
+        } else if (data.usage_metadata?.prompt_token_count !== undefined) { // Gemini
+          inputTokens = data.usage_metadata.prompt_token_count;
+          outputTokens = data.usage_metadata.candidates_token_count || 0;
+          totalTokens = data.usage_metadata.total_token_count || (inputTokens + outputTokens);
+        } else {
+          // Fallback to text length estimation
+          const content = data.choices?.[0]?.message?.content || "";
+          inputTokens = Math.ceil(prompt.length / 4);
+          outputTokens = Math.ceil(content.length / 4);
+          totalTokens = inputTokens + outputTokens;
+          estimated = true;
+        }
+      } catch (err) {
+        console.warn('Token extraction failed, estimating from length', err);
+        const content = data.choices?.[0]?.message?.content || "";
+        inputTokens = Math.ceil(prompt.length / 4);
+        outputTokens = Math.ceil(content.length / 4);
+        totalTokens = inputTokens + outputTokens;
+        estimated = true;
+      }
+
+      return {
+        content: data.choices?.[0]?.message?.content || "",
+        model: data.model || model,
+        inputTokens,
+        outputTokens,
+        totalTokens,
+        estimated
+      };
     } catch (err: any) {
       clearTimeout(timeoutId);
       if (err.name === 'AbortError') {
@@ -156,6 +214,25 @@ export class LLMRouter {
     return 'rule-engine';
   }
 
+  private static recordCostEvent(event: any) {
+    try {
+      const traceCtx = getCurrentTrace();
+      const p = supabaseAdmin.from('cost_events').insert({
+        trace_id: traceCtx?.trace_id,
+        span_id: traceCtx?.span_id,
+        ...event
+      });
+      const rt = (globalThis as any).EdgeRuntime;
+      if (rt && typeof rt.waitUntil === "function") {
+        rt.waitUntil(Promise.resolve(p).catch(() => {}));
+      } else {
+        Promise.resolve(p).catch(() => {});
+      }
+    } catch (e) {
+      console.warn("recordCostEvent failed", e);
+    }
+  }
+
   /**
    * Executes a prompt using the best available LLM with automatic failover.
    * @param request The prompt and formatting requirements
@@ -171,23 +248,59 @@ export class LLMRouter {
       const startTime = Date.now();
       try {
         const result = await this.callDirectApi(currentProvider, fullPrompt);
-        await this.updateProviderHealth(currentProvider, 'success');
+        const latencyMs = Date.now() - startTime;
+        const costEstimate = estimateCost(currentProvider, result.inputTokens, result.outputTokens, result.model);
+
+        await this.updateProviderHealth(currentProvider, 'success', {
+          tokens: result.totalTokens,
+          cost: costEstimate,
+          latencyMs
+        });
         
-        return {
-          content: result,
+        this.recordCostEvent({
           provider: currentProvider,
-          latencyMs: Date.now() - startTime
+          model: result.model,
+          operation: 'chat',
+          input_tokens: result.inputTokens,
+          output_tokens: result.outputTokens,
+          total_tokens: result.totalTokens,
+          cost_estimate: costEstimate,
+          latency_ms: latencyMs,
+          status: 'success',
+          attributes: result.estimated ? { estimated_tokens: true, confidence: "low" } : {}
+        });
+
+        return {
+          content: result.content,
+          provider: currentProvider,
+          model: result.model,
+          latencyMs,
+          inputTokens: result.inputTokens,
+          outputTokens: result.outputTokens,
+          totalTokens: result.totalTokens,
+          costEstimate
         };
       } catch (err: any) {
         const errorType = err.message;
         
+        const latencyMs = Date.now() - startTime;
+
         if (errorType === 'TIMEOUT') {
-          await this.updateProviderHealth(currentProvider, 'timeout');
+          await this.updateProviderHealth(currentProvider, 'timeout', { tokens: 0, cost: 0, latencyMs, errorMsg: errorType });
         } else if (errorType === 'RATE_LIMIT') {
-          await this.updateProviderHealth(currentProvider, 'rate_limit');
+          await this.updateProviderHealth(currentProvider, 'rate_limit', { tokens: 0, cost: 0, latencyMs, errorMsg: errorType });
         } else {
-          await this.updateProviderHealth(currentProvider, 'failure');
+          await this.updateProviderHealth(currentProvider, 'failure', { tokens: 0, cost: 0, latencyMs, errorMsg: errorType });
         }
+
+        this.recordCostEvent({
+          provider: currentProvider,
+          model: currentProvider,
+          operation: 'chat',
+          latency_ms: latencyMs,
+          status: 'error',
+          error_message: errorType
+        });
 
         // Exclude the failed provider and try the next one (no caller-array mutation)
         excludedProviders = [...excludedProviders, currentProvider];
@@ -199,7 +312,12 @@ export class LLMRouter {
     return {
       content: "RULE_ENGINE_FALLBACK",
       provider: 'rule-engine',
-      latencyMs: 0
+      model: 'rule-engine',
+      latencyMs: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      costEstimate: 0
     };
   }
 

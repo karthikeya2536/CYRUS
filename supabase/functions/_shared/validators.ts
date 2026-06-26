@@ -49,3 +49,14 @@ export function isAllowedRedirectUri(redirectUri: unknown, allowlistEnv: string 
   if (allowedList.length === 0) return false;
   return allowedList.includes(redirectUri);
 }
+
+// SHA-256 hex digest. OAuth state is stored hashed at rest (oauth_states.state_hash)
+// so a read of the table cannot reveal a usable state value; the raw state lives
+// only in the client URL and is hashed again on the callback to look the row up.
+export async function sha256Hex(value: string): Promise<string> {
+  const data = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}

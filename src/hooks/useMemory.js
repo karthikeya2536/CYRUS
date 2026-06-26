@@ -19,10 +19,16 @@ export function useMemory() {
   const fetchMemories = async () => {
     if (!user) return;
     setLoading(true);
+    // Show only live memories: active, and not past their expiry. This mirrors
+    // what retrieval/briefings now honor (migration 031), so the UI cannot imply
+    // deactivated or expired "garbage" memories still exist.
+    const nowIso = new Date().toISOString();
     const { data, error } = await supabase
       .from('memory_records')
       .select('*')
       .eq('user_id', user.id)
+      .eq('active', true)
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
       .order('confidence_score', { ascending: false })
       .order('occurrence_count', { ascending: false });
 

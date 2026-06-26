@@ -3,6 +3,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useConnectedAccounts } from '../hooks/useConnectedAccounts';
 import { useEmails } from '../hooks/useEmails';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
+import { useMemory } from '../hooks/useMemory';
+import { useBriefings } from '../hooks/useBriefings';
 import { supabase } from '../lib/supabase';
 import { AppLayout } from '../components/AppLayout';
 import { SkeletonList, SkeletonText } from '../components/Skeleton';
@@ -14,11 +16,32 @@ export default function Dashboard() {
   const { googleAccount, loading: accountsLoading, connectGoogle, disconnectGoogle } = useConnectedAccounts();
   const { emails, loading: emailsLoading, syncing: emailsSyncing, syncError: emailsSyncError, syncGmail, refetch: refetchEmails } = useEmails();
   const { events, loading: eventsLoading, syncing: eventsSyncing, syncError: eventsSyncError, syncCalendar, refetch: refetchEvents } = useCalendarEvents();
+  const { memories } = useMemory();
+  const { briefings } = useBriefings();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [llmJobStats, setLlmJobStats] = useState(null);
   const toast = useToast();
+
+  useEffect(() => {
+    async function fetchLlmJobStats() {
+      if (!user) return;
+      const { data } = await supabase
+        .from('llm_jobs')
+        .select('status')
+        .eq('user_id', user.id);
+      if (data) {
+        const total = data.length;
+        const completed = data.filter(j => j.status === 'completed').length;
+        const failed = data.filter(j => j.status === 'permanently_failed').length;
+        const pending = data.filter(j => j.status === 'pending' || j.status === 'processing').length;
+        setLlmJobStats({ total, completed, failed, pending });
+      }
+    }
+    fetchLlmJobStats();
+  }, [user]);
 
   useEffect(() => {
     async function fetchProfile() {
@@ -101,6 +124,50 @@ export default function Dashboard() {
             </p>
           </div>
         </div>
+
+        <section className="card">
+          <div className="card-header">
+            <h2>Summary</h2>
+          </div>
+          <div className="stat-grid">
+            <div className="stat-card">
+              <span className="stat-label">Connected Accounts</span>
+              <span className="stat-value">{accountsLoading ? '…' : googleAccount ? '1' : '0'}</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Emails</span>
+              <span className="stat-value">{emails.length}</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Calendar Events</span>
+              <span className="stat-value">{events.length}</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Memories</span>
+              <span className="stat-value">{memories.length}</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Briefings</span>
+              <span className="stat-value">{briefings.length}</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Last Sync</span>
+              <span className="stat-value text-sm">
+                {googleAccount?.last_synced_at
+                  ? new Date(googleAccount.last_synced_at).toLocaleDateString()
+                  : 'Never'}
+              </span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">LLM Jobs</span>
+              <span className="stat-value">
+                {llmJobStats
+                  ? `${llmJobStats.completed} ok${llmJobStats.failed > 0 ? ` / ${llmJobStats.failed} failed` : ''}`
+                  : '…'}
+              </span>
+            </div>
+          </div>
+        </section>
 
         <section className="card">
           <div className="card-header">

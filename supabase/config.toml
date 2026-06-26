@@ -25,3 +25,25 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/llm-worker/deno.json"
 entrypoint = "./functions/llm-worker/index.ts"
+
+# gmail-sync: serves UI calls (JWT validated via getUser inside the handler)
+# AND scheduled calls from pg_cron via pg_net (authenticated by the
+# x-worker-secret header, same as llm-worker). pg_net does not attach a user
+# JWT, so verify_jwt MUST be false; the function enforces auth on both paths.
+[functions.gmail-sync]
+enabled = true
+verify_jwt = false
+
+# calendar-sync: same dual-path auth as gmail-sync (UI JWT or x-worker-secret
+# system invocation from pg_cron). verify_jwt MUST be false; the function
+# enforces auth on both paths.
+[functions.calendar-sync]
+enabled = true
+verify_jwt = false
+
+# generate-briefing: same dual-path auth (UI JWT or x-worker-secret system
+# invocation from pg_cron). verify_jwt MUST be false; the function enforces auth,
+# duplicate protection, and quota on both paths.
+[functions.generate-briefing]
+enabled = true
+verify_jwt = false

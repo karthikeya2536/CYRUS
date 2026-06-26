@@ -12,11 +12,17 @@ export interface LogContext {
   request_id: string;
 }
 
+import { getCurrentTrace } from "./trace.ts";
+
 function emit(level: Level, ctx: LogContext, msg: string, fields?: Record<string, unknown>) {
+  const traceCtx = getCurrentTrace();
   const entry = {
     level,
+    timestamp: new Date().toISOString(),
     fn: ctx.fn,
     request_id: ctx.request_id,
+    trace_id: traceCtx?.trace_id,
+    span_id: traceCtx?.span_id,
     msg,
     ...(fields || {}),
   };
