@@ -182,41 +182,48 @@ serve(async (req: Request) => {
       log.info("TOKEN_VALID");
     }
 
-    // 3. Fetch Google Calendar events
+    // 3. Fetch Google Calendar events with pagination
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const timeMin = today.toISOString();
-    
+
     const timeMaxDate = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
     const timeMax = timeMaxDate.toISOString();
 
-    const calendarRes = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=50&orderBy=startTime&singleEvents=true&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`, 
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
+    let allEvents: any[] = [];
+    let pageToken: string | undefined;
+    do {
+      const calendarRes = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=100&orderBy=startTime&singleEvents=true&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}${pageToken ? `&pageToken=${pageToken}` : ""}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
 
-    if (!calendarRes.ok) {
-      let errMessage = calendarRes.statusText;
+      if (!calendarRes.ok) {
+        let errMessage = calendarRes.statusText;
+        try {
+          const errData = await calendarRes.json();
+          if (errData.error?.message) errMessage = errData.error.message;
+        } catch (e) {}
+        await recordSyncError(`Calendar API error: ${errMessage}`);
+        return jsonResponse({ error: `Calendar API error: ${errMessage}` }, 500);
+      }
+
+      let calendarData;
       try {
-        const errData = await calendarRes.json();
-        if (errData.error?.message) errMessage = errData.error.message;
-      } catch (e) {}
-      await recordSyncError(`Calendar API error: ${errMessage}`);
-      return jsonResponse({ error: `Calendar API error: ${errMessage}` }, 500);
-    }
+        calendarData = await calendarRes.json();
+      } catch (e) {
+        await recordSyncError("Calendar API error: failed to parse JSON response.");
+        return jsonResponse({ error: `Calendar API error: Failed to parse JSON response.` }, 500);
+      }
 
-    let calendarData;
-    try {
-      calendarData = await calendarRes.json();
-    } catch (e) {
-      await recordSyncError("Calendar API error: failed to parse JSON response.");
-      return jsonResponse({ error: `Calendar API error: Failed to parse JSON response.` }, 500);
-    }
+      const events = calendarData.items || [];
+      allEvents.push(...events);
+      pageToken = calendarData.nextPageToken;
+    } while (pageToken);
 
-    const eventsList = calendarData.items || [];
     let syncedCount = 0;
 
-    for (const evt of eventsList) {
+    for (const evt of allEvents) {
       const google_event_id = evt.id;
       if (!google_event_id) continue;
 

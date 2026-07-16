@@ -1,0 +1,39 @@
+{
+  "config": {
+    "pattern": "ramp_up",
+    "concurrency": 50,
+    "durationSeconds": 60,
+    "rampUpTime": 30,
+    "patternName": "ramp_up"
+  },
+  "summary": {
+    "startTime": "2026-07-16T08:33:04.207Z",
+    "endTime": "2026-07-16T08:34:06.301Z",
+    "durationSeconds": 62,
+    "totalRequests": 11413,
+    "totalErrors": 11413,
+    "errorRate": 100,
+    "requestsPerSecond": 183.82,
+    "averageLatencyMs": 30.19,
+    "p50": 23.986999999993714,
+    "p95": 81.35690000001341,
+    "p99": 126.37510000000475,
+    "p50LatencyMs": 23.99,
+    "p95LatencyMs": 81.36,
+    "p99LatencyMs": 126.38
+  },
+  "endpoints": {
+    "/functions/v1/retrieve-context": 0,
+    "/functions/v1/gmail-sync": 2909,
+    "/functions/v1/calendar-sync": 2781,
+    "/functions/v1/llm-worker": 2843,
+    "/functions/v1/generate-briefing": 2880
+  },
+  "statusCodes": {
+    "0": 11413
+  },
+  "concurrentUsers": {
+    "target": 50,
+    "maxObserved": 0
+  }
+}

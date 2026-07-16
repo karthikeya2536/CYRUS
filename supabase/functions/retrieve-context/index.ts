@@ -19,7 +19,7 @@ const RATE_LIMIT_PER_MIN = 30;
 // attributed to the exact retrieval variant that produced a result.
 const RETRIEVAL_VERSION = "v1";
 const RETRIEVAL_CANDIDATE_LIMIT = 60; // 30 memories + 20 emails + 10 events
-const EMBEDDING_MODEL = Deno.env.get("EMBEDDING_MODEL") ?? "default-768";
+const EMBEDDING_MODEL = Deno.env.get("OMNIROUTE_EMBEDDING_MODEL") ?? "default-768";
 
 // Phase 16: graph-based context expansion limits.
 const GRAPH_MAX_HOPS = 2;
@@ -209,10 +209,10 @@ serve(async (req: Request) => {
             p_user_id: user.id,
             p_memory_ids: seedIds
           });
-          
+
           if (nodes && nodes.length > 0) {
             const startNodeIds = nodes.map((n: any) => n.node_id);
-            
+
             const traverseStart = Date.now();
             const { data: relations } = await supabaseAdmin.rpc("graph_render_relations", {
               p_user_id: user.id,
@@ -227,7 +227,8 @@ serve(async (req: Request) => {
             expandSpan.setAttribute("graph_nodes_resolved", nodes.length);
 
             if (relations && relations.length > 0) {
-              rankedExpanded = relations;
+              // Sort graph relations by score descending for better presentation
+              rankedExpanded = (relations || []).sort((a: any, b: any) => (b.score || 0) - (a.score || 0));
             }
           }
         }
@@ -320,8 +321,8 @@ serve(async (req: Request) => {
 
     return jsonResponse({
       context: assembled.context,
-      metadata: { 
-        ...assembled.metadata, 
+      metadata: {
+        ...assembled.metadata,
         embeddingAvailable,
         debugInfo: {
           question: query,

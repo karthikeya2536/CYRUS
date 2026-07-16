@@ -81,7 +81,7 @@ DROP POLICY IF EXISTS "Service role only" ON public.metrics_snapshot;
 REVOKE ALL ON public.metrics_snapshot FROM PUBLIC, anon, authenticated;
 GRANT ALL ON public.metrics_snapshot TO service_role;
 
-CREATE INDEX IF NOT EXISTS idx_metrics_snapshot_lookup 
+CREATE INDEX IF NOT EXISTS idx_metrics_snapshot_lookup
   ON public.metrics_snapshot (metric_name, window_seconds, window_start DESC);
 
 -- 3.5 aggregation_checkpoints
@@ -94,36 +94,30 @@ ALTER TABLE public.aggregation_checkpoints DISABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.aggregation_checkpoints FROM PUBLIC, anon, authenticated;
 GRANT ALL ON public.aggregation_checkpoints TO service_role;
 
-INSERT INTO public.aggregation_checkpoints (id, last_processed_at) 
-VALUES ('metrics_aggregator', NOW() - INTERVAL '1 minute') 
+INSERT INTO public.aggregation_checkpoints (id, last_processed_at)
+VALUES ('metrics_aggregator', NOW() - INTERVAL '1 minute')
 ON CONFLICT DO NOTHING;
 
 -- 4. Alterations to existing tables
-ALTER TABLE public.provider_health 
-  ADD COLUMN IF NOT EXISTS total_tokens BIGINT DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS total_cost DOUBLE PRECISION DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS avg_latency_ms DOUBLE PRECISION,
-  ADD COLUMN IF NOT EXISTS last_error TEXT,
-  ADD COLUMN IF NOT EXISTS last_status_code INTEGER;
-
-ALTER TABLE public.llm_jobs 
+-- Note: provider_health alterations removed as table is deprecated in favor of OmniRoute
+ALTER TABLE public.llm_jobs
   ADD COLUMN IF NOT EXISTS trace_id UUID,
   ADD COLUMN IF NOT EXISTS cost_estimate DOUBLE PRECISION DEFAULT 0,
   ADD COLUMN IF NOT EXISTS token_count INTEGER DEFAULT 0;
 
-ALTER TABLE public.briefings 
+ALTER TABLE public.briefings
   ADD COLUMN IF NOT EXISTS trace_id UUID,
   ADD COLUMN IF NOT EXISTS token_count INTEGER DEFAULT 0,
   ADD COLUMN IF NOT EXISTS cost_estimate DOUBLE PRECISION DEFAULT 0;
 
-ALTER TABLE public.retrieval_runs 
+ALTER TABLE public.retrieval_runs
   ADD COLUMN IF NOT EXISTS trace_id UUID;
 
-ALTER TABLE public.connected_accounts 
+ALTER TABLE public.connected_accounts
   ADD COLUMN IF NOT EXISTS consecutive_failures INTEGER DEFAULT 0,
   ADD COLUMN IF NOT EXISTS last_alerted_at TIMESTAMPTZ;
 
-ALTER TABLE public.memory_records 
+ALTER TABLE public.memory_records
   ADD COLUMN IF NOT EXISTS extraction_job_id UUID,
   ADD COLUMN IF NOT EXISTS extraction_trace_id UUID;
 
@@ -135,10 +129,10 @@ SECURITY DEFINER
 AS $$
 BEGIN
   INSERT INTO public.traces (
-    span_id, trace_id, parent_span_id, service, operation, span_kind, 
+    span_id, trace_id, parent_span_id, service, operation, span_kind,
     started_at, duration_ms, status, status_message, attributes, user_id, job_id
   )
-  SELECT 
+  SELECT
     (s->>'span_id')::uuid,
     (s->>'trace_id')::uuid,
     NULLIF(s->>'parent_span_id', '')::uuid,
@@ -169,7 +163,7 @@ BEGIN
   PERFORM 1 FROM pg_extension WHERE extname = 'pg_cron';
   IF FOUND THEN
     -- Aggregate metrics every minute
-    PERFORM cron.schedule('metrics_aggregator_job', '* * * * *', 
+    PERFORM cron.schedule('metrics_aggregator_job', '* * * * *',
       $cron$
       SELECT net.http_post(
         url:='http://supabase_kong:8000/functions/v1/metrics-aggregator',
@@ -180,7 +174,7 @@ BEGIN
     );
 
     -- Purge traces older than 7 days, cost events older than 30 days
-    PERFORM cron.schedule('trace_retention_job', '0 2 * * *', 
+    PERFORM cron.schedule('trace_retention_job', '0 2 * * *',
       $cron$
       DELETE FROM public.traces WHERE created_at < NOW() - INTERVAL '7 days';
       DELETE FROM public.cost_events WHERE created_at < NOW() - INTERVAL '30 days';

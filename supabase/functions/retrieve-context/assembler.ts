@@ -34,17 +34,39 @@ export function assembleContext(
   let currentWordCount = 0;
   const finalContext: any[] = [];
 
-  // Inject graph relations first (they do not affect ranking, just context)
-  for (const rel of graphRelations) {
-    const fullText = `[Relation] ${rel.source_node} ${rel.relationship_type} ${rel.target_node}.`;
-    const wordCount = fullText.split(/\s+/).length;
-    
+  // Helper to convert a relation to a natural language sentence
+  const relationToText = (rel: any): string => {
+    const { source_node: source, relationship_type: relType, target_node: target } = rel;
+    // Map relationship types to more natural phrasing
+    const map: Record<string, (s: string, t: string) => string> = {
+      works_on: (s, t) => `${s} works on ${t}.`,
+      blocked_by: (s, t) => `${s} is blocked by ${t}.`,
+      depends_on: (s, t) => `${s} depends on ${t}.`,
+      owns: (s, t) => `${s} owns ${t}.`,
+      assigned_to: (s, t) => `${s} is assigned to ${t}.`,
+      collaborates_on: (s, t) => `${s} collaborates on ${t}.`,
+      part_of: (s, t) => `${s} is part of ${t}.`,
+      signed: (s, t) => `${s} signed ${t}.`,
+      mentions: (s, t) => `${s} mentions ${t}.`,
+    };
+    const formatter = map[relType] ?? ((s, t) => `${s} ${relType} ${t}.`);
+    return formatter(source, target);
+  };
+
+  // Sort graph relations by score (descending) for better presentation
+  const sortedRelations = [...graphRelations].sort((a, b) => (b.score || 0) - (a.score || 0));
+
+  // Insert graph relations as natural language sentences
+  for (const rel of sortedRelations) {
+    const sentence = relationToText(rel);
+    const wordCount = sentence.split(/\s+/).length;
+
     if (currentWordCount + wordCount <= maxWords || finalContext.length === 0) {
       finalContext.push({
         id: `graph-rel-${rel.source_node}-${rel.target_node}`,
-        text: fullText,
+        text: sentence,
         score: 0.0,
-        source: 'graph'
+        source: 'graph',
       });
       currentWordCount += wordCount;
     } else {

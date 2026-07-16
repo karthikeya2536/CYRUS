@@ -48,7 +48,7 @@ scattered members — while leaving every original `memory_records` row untouche
   filter `user_id` explicitly.
 - Long/LLM work is **never inline** — it goes through `llm_jobs` + `llm-worker`
   (reclaim → claim → retry → dead-letter invariants).
-- Embeddings are `vector(768)` (Gemini `text-embedding-004`).
+- Embeddings are `vector(768)` (resolved by OmniRoute via `OMNIROUTE_EMBEDDING_MODEL`).
 
 ---
 

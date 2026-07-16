@@ -236,32 +236,43 @@ serve(async (req: Request) => {
     }
 
     // Call Gmail API
-    const messagesRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20", {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
+    // Call Gmail API with pagination
+    let allMessages: any[] = [];
+    let pageToken: string | undefined;
+    do {
+      const messagesRes = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=100${pageToken ? `&pageToken=${pageToken}` : ""}`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        }
+      );
 
-    if (!messagesRes.ok) {
-      let errMessage = messagesRes.statusText;
+      if (!messagesRes.ok) {
+        let errMessage = messagesRes.statusText;
+        try {
+          const errData = await messagesRes.json();
+          if (errData.error?.message) errMessage = errData.error.message;
+        } catch (e) {}
+        await recordSyncError(`Gmail API error: ${errMessage}`);
+        return jsonResponse({ error: `Gmail API error: ${errMessage}` }, 500);
+      }
+
+      let messagesData;
       try {
-        const errData = await messagesRes.json();
-        if (errData.error?.message) errMessage = errData.error.message;
-      } catch (e) {}
-      await recordSyncError(`Gmail API error: ${errMessage}`);
-      return jsonResponse({ error: `Gmail API error: ${errMessage}` }, 500);
-    }
+        messagesData = await messagesRes.json();
+      } catch (e) {
+        await recordSyncError("Gmail API error: failed to parse JSON response.");
+        return jsonResponse({ error: `Gmail API error: Failed to parse JSON response.` }, 500);
+      }
 
-    let messagesData;
-    try {
-      messagesData = await messagesRes.json();
-    } catch (e) {
-      await recordSyncError("Gmail API error: failed to parse JSON response.");
-      return jsonResponse({ error: `Gmail API error: Failed to parse JSON response.` }, 500);
-    }
+      const messages = messagesData.messages || [];
+      allMessages.push(...messages);
+      pageToken = messagesData.nextPageToken;
+    } while (pageToken);
 
-    const messagesList = messagesData.messages || [];
     let syncedCount = 0;
 
-    for (const msg of messagesList) {
+    for (const msg of allMessages) {
       if (!msg.id) continue;
 
       const msgRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`, {

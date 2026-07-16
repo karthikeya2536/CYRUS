@@ -3,16 +3,14 @@ export interface TokenPricing {
   outputPer1k: number;
 }
 
+// Simplified pricing for OmniRoute - replace with actual values when available
 export const PROVIDER_PRICING: Record<string, TokenPricing> = {
-  'gemini-3.1-flash-lite': { inputPer1k: 0.00001875, outputPer1k: 0.000075 },
-  'gpt-oss-120b': { inputPer1k: 0.00015, outputPer1k: 0.00015 },
-  'gemma-3-27b': { inputPer1k: 0.000075, outputPer1k: 0.00015 },
-  'nvidia-nim': { inputPer1k: 0.00015, outputPer1k: 0.00015 },
-  'groq-llama-3.1-8b': { inputPer1k: 0.00005, outputPer1k: 0.00008 }
+  'omniroute': { inputPer1k: 0.0001, outputPer1k: 0.0002 } // Placeholder values
 };
 
 export const EMBEDDING_PRICING = {
-  'text-embedding-004': { inputPer1kChars: 0.000025 }
+  // Assuming OmniRoute embedding model pricing
+  'omniroute-embed': { inputPer1kChars: 0.00002 } // Placeholder
 };
 
 export function estimateCost(provider: string, inputTokens: number, outputTokens: number, model?: string): number {

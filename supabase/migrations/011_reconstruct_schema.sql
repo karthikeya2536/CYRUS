@@ -1,42 +1,22 @@
 -- ============================================
--- Migration: Reconstruct missing schema
+-- Migration: 011_reconstruct_schema.sql
 -- ============================================
--- The tables memory_records, llm_jobs, provider_health and briefings are
--- referenced throughout supabase/functions/** but have no DDL in the repo.
--- This migration reconstructs their CREATE TABLE definitions from every column
--- referenced in the function code, enables RLS, and adds per-user policies.
---
--- Columns collected from:
---   memory_records  -> llm-worker/index.ts (insert ~L215, update ~L206, select ~L196,
---                      briefing select ~L294), system-validation/index.ts (L48, L246, L385),
---                      retrieve-context (via hybrid_search_memories / assembler.ts)
---   llm_jobs        -> llm-worker/index.ts (fetch/update/insert), memory-extraction,
---                      generate-briefing, system-validation
---   provider_health -> _shared/llm-router.ts (getProviderHealth/updateProviderHealth),
---                      system-validation/index.ts (test2to4, test7)
---   briefings       -> llm-worker/index.ts (insert ~L349), system-validation (test8)
---
--- pgvector required for memory_records.embedding (vector(768)).
-
-CREATE EXTENSION IF NOT EXISTS vector;
-
--- ============================================
--- UP
--- ============================================
+-- This migration reconstructs the base schema for the Cyrus V2 application.
+-- NOTE: provider_health table has been removed and replaced with OmniRoute.
 
 -- --------------------------------------------
--- memory_records
+-- memories
 -- --------------------------------------------
 CREATE TABLE IF NOT EXISTS public.memory_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  category TEXT,
+  category TEXT NOT NULL,
   content TEXT NOT NULL,
-  memory_key TEXT,
-  source_type TEXT,
+  memory_key TEXT NOT NULL,
+  source_type TEXT DEFAULT 'unknown',
   source_id TEXT,
   source_hash TEXT,
-  confidence_score NUMERIC DEFAULT 0,
+  confidence_score INTEGER DEFAULT 0,
   llm_provider TEXT,
   verifier_provider TEXT,
   verified BOOLEAN DEFAULT FALSE,
@@ -99,23 +79,10 @@ CREATE POLICY "Users can update own llm_jobs" ON public.llm_jobs FOR UPDATE USIN
 CREATE POLICY "Users can delete own llm_jobs" ON public.llm_jobs FOR DELETE USING (auth.uid() = user_id);
 
 -- --------------------------------------------
--- provider_health (service-role only: NO user policies, RLS enabled)
+-- provider_health table removed - replaced by OmniRoute
 -- --------------------------------------------
-CREATE TABLE IF NOT EXISTS public.provider_health (
-  provider_name TEXT PRIMARY KEY,
-  failure_count INTEGER DEFAULT 0,
-  success_count INTEGER DEFAULT 0,
-  timeout_count INTEGER DEFAULT 0,
-  rate_limit_count INTEGER DEFAULT 0,
-  cooldown_until TIMESTAMPTZ,
-  last_success TIMESTAMPTZ,
-  last_failure TIMESTAMPTZ
-);
-
-ALTER TABLE public.provider_health ENABLE ROW LEVEL SECURITY;
--- No RLS policies: this table is global health state, touched only by the
--- service role (LLMRouter, system-validation). RLS-enabled with no policy
--- denies all access to authenticated/anon while service_role bypasses RLS.
+-- The provider_health table has been removed as part of the migration to OmniRoute.
+-- LLM provider health and routing is now handled entirely by the OmniRoute service.
 
 -- --------------------------------------------
 -- briefings
@@ -147,7 +114,6 @@ CREATE POLICY "Users can delete own briefings" ON public.briefings FOR DELETE US
 -- WARNING: dropping these tables destroys data. Only for clean reverts.
 --
 -- DROP TABLE IF EXISTS public.briefings;
--- DROP TABLE IF EXISTS public.provider_health;
 -- DROP TABLE IF EXISTS public.llm_jobs;
 -- DROP TABLE IF EXISTS public.memory_records;
 
@@ -155,7 +121,7 @@ CREATE POLICY "Users can delete own briefings" ON public.briefings FOR DELETE US
 -- VERIFICATION
 -- ============================================
 --   SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname='public'
---     AND tablename IN ('memory_records','llm_jobs','provider_health','briefings');
+--     AND tablename IN ('memory_records','llm_jobs','briefings');
 --   SELECT tablename, policyname FROM pg_policies WHERE schemaname='public'
---     AND tablename IN ('memory_records','llm_jobs','provider_health','briefings');
--- Expect rowsecurity=true for all four; provider_health has zero policies.
+--     AND tablename IN ('memory_records','llm_jobs','briefings');
+-- Expect rowsecurity=true for all three tables.

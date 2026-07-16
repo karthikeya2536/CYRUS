@@ -5,17 +5,28 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 Deno.env.set('SUPABASE_URL', "http://127.0.0.1:54321");
 Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU");
 
-Deno.env.set('GEMINI_API_KEY', "fake-gemini");
-Deno.env.set('CEREBRAS_API_KEY', "fake-cerebras");
-Deno.env.set('NVIDIA_API_KEY', "fake-nvidia");
-Deno.env.set('GROQ_API_KEY', "fake-groq");
+Deno.env.set('OMNIROUTE_BASE_URL', "http://localhost:8000"); // Example
+Deno.env.set('OMNIROUTE_API_KEY', "fake-omniroute");
+Deno.env.set('OMNIROUTE_DEFAULT_MODEL', "omniroute-model");
+Deno.env.set('OMNIROUTE_EMBEDDING_MODEL', "omniroute-embed");
 
+// Mock fetch for external API calls — intercept any calls to the OmniRoute base URL
 const originalFetch = globalThis.fetch;
+const omniBaseUrl = Deno.env.get('OMNIROUTE_BASE_URL') ?? '';
 globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = input.toString();
-  if (url.includes('api.groq.com') || url.includes('api.nvidia.com') || url.includes('api.openai.com') || url.includes('generativelanguage.googleapis.com') || url.includes('models') || url.includes('cerebras.ai')) {
+  if (url.startsWith(omniBaseUrl)) {
+    const endpoint = url.slice(omniBaseUrl.length);
+    // Mock embedings endpoint differently
+    if (endpoint.includes('embeddings')) {
+      return new Response(JSON.stringify({
+        data: [{ embedding: new Array(768).fill(0.01) }],
+        usage: { prompt_tokens: 10, total_tokens: 10 }
+      }));
+    }
+    // Mock chat completions
     return new Response(JSON.stringify({
-      choices: [{ message: { content: "Mocked response" } }],
+      choices: [{ message: { content: "Mocked OmniRoute response" } }],
       usage: { prompt_tokens: 150, completion_tokens: 50, total_tokens: 200 }
     }));
   }
@@ -28,38 +39,50 @@ setDefaultSupabaseClient(supabaseAdmin);
 
 // Function to simulate real execution
 async function simulate() {
-  console.log("Clearing provider cooldowns...");
-  await supabaseAdmin.from('provider_health').update({ cooldown_until: null }).neq('provider_name', '');
+  console.log("OmniRoute is configured (mocked).");
 
   console.log("Running Gmail sync + Memory extraction...");
   await runWithTrace('gmail-sync', async () => {
     await runWithTrace('fetch_emails', async () => {});
     await runWithTrace('memory-extraction', async () => {
-      // Force gpt-oss-120b
-      await LLMRouter.execute({ userPrompt: "Extract memory" }, ['gemini-3.1-flash-lite']);
+      // No need to force a provider - OmniRoute handles routing
+      await LLMRouter.execute({
+        userPrompt: "Extract memory",
+        expectedFormat: 'json',
+        capability: 'reasoning'
+      });
     });
   });
 
   console.log("Running Calendar sync...");
   await runWithTrace('calendar-sync', async () => {
     await runWithTrace('fetch_events', async () => {});
-    // Force gemini-3.1-flash-lite
-    await LLMRouter.execute({ userPrompt: "Parse events" });
+    // No need to force a provider
+    await LLMRouter.execute({
+      userPrompt: "Parse events",
+      capability: 'reasoning'
+    });
   });
 
   console.log("Running Briefing generation...");
   await runWithTrace('briefing-generation', async () => {
     await runWithTrace('fetch_context', async () => {});
-    // Force groq
-    await LLMRouter.execute({ userPrompt: "Generate briefing" }, ['gemini-3.1-flash-lite', 'gpt-oss-120b', 'gemma-3-27b', 'nvidia-nim']);
+    // No need to force a provider
+    await LLMRouter.execute({
+      userPrompt: "Generate briefing",
+      capability: 'summarization'
+    });
   });
 
   console.log("Running Retrieve-context queries...");
   await runWithTrace('retrieve-context', async () => {
     await runWithTrace('hybrid-search', async () => {});
     await runWithTrace('graph-retrieval', async () => {});
-    // Force nvidia-nim
-    await LLMRouter.execute({ userPrompt: "Rank results" }, ['gemini-3.1-flash-lite', 'gpt-oss-120b', 'gemma-3-27b']);
+    // No need to force a provider
+    await LLMRouter.execute({
+      userPrompt: "Rank results",
+      capability: 'reasoning'
+    });
   });
 
   console.log("Flushing spans...");
@@ -71,8 +94,6 @@ async function simulate() {
 async function runMetricsAggregator() {
   console.log("Running metrics aggregator logic manually...");
   const supabaseAdmin = createClient("http://127.0.0.1:54321", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU");
-  
-  await supabaseAdmin.from('aggregation_checkpoints').upsert({ id: 'metrics_aggregator', last_processed_at: new Date(Date.now() - 120000).toISOString() });
 
   const windowStart = new Date(Date.now() - 120000).toISOString();
   const windowEnd = new Date().toISOString();

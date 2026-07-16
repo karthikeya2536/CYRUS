@@ -93,14 +93,15 @@ Long/LLM work is **never** done inline. Producers insert rows into `llm_jobs`
 When editing the worker, preserve the reclaim → claim → retry → dead-letter invariants.
 
 ### LLM routing (`_shared/llm-router.ts`)
-`LLMRouter.execute()` tries providers in priority order
-(`gemini-3.1-flash-lite` → Cerebras `gpt-oss-120b` → `gemma-3-27b` → `nvidia-nim` →
-`groq-llama-3.1-8b`) with a **circuit breaker**: failures/timeouts are tracked in
-`provider_health`; 3 consecutive failures → 5-min cooldown, rate-limit → 1-min cooldown.
-If all providers are down it returns the `rule-engine` sentinel and callers fall back to
-deterministic rule-based logic (e.g. `ruleBasedBriefing`, `ruleBasedExtraction`).
-`generateEmbedding()` uses Gemini `text-embedding-004` (fallback NVIDIA NIM) and **must
-return 768 dims** — `memory_records.embedding` is `vector(768)`.
+All LLM requests go through the `LLMRouter` class, which acts as a thin wrapper over
+OmniRoute, the centralized AI gateway. The router provides two main methods:
+- `execute(request)`: processes a prompt and returns generated text. The `request` can
+  specify a `capacity` (e.g., 'reasoning', 'summarization', 'extraction') to help
+  OmniRoute select the appropriate model.
+- `generateEmbedding(text)`: returns a 768-dimensional embedding vector using OmniRoute.
+
+This design ensures that no edge function contains provider-specific logic or model names.
+All routing, fallback, and provider selection is handled by OmniRoute.
 
 ### Memory + retrieval
 Sync → enqueue `memory_extraction` → worker extracts candidates, dedups by cosine distance
@@ -147,3 +148,44 @@ hardcoded in `plans.ts` so they change without a migration. No/inactive subscrip
 A Supabase MCP server is configured in `.mcp.json`. Installed agent skills (pinned in
 `skills-lock.json`, vendored under `.agents/skills/`): `supabase-postgres-best-practices`
 and `web-design-guidelines` — consult them for Postgres/RLS/index and UI work.
+
+## gstack
+
+For all web browsing tasks, use the `/browse` skill from gstack. Never use `mcp__claude-in-chrome__*` tools.
+
+Available gstack skills:
+- `/office-hours`
+- `/plan-ceo-review`
+- `/plan-eng-review`
+- `/plan-design-review`
+- `/design-consultation`
+- `/design-shotgun`
+- `/design-html`
+- `/review`
+- `/ship`
+- `/land-and-deploy`
+- `/canary`
+- `/benchmark`
+- `/browse`
+- `/connect-chrome`
+- `/qa`
+- `/qa-only`
+- `/design-review`
+- `/setup-browser-cookies`
+- `/setup-deploy`
+- `/setup-gbrain`
+- `/retro`
+- `/investigate`
+- `/document-release`
+- `/document-generate`
+- `/codex`
+- `/cso`
+- `/autoplan`
+- `/plan-devex-review`
+- `/devex-review`
+- `/careful`
+- `/freeze`
+- `/guard`
+- `/unfreeze`
+- `/gstack-upgrade`
+- `/learn`

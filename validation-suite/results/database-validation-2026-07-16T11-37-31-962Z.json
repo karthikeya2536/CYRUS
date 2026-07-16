@@ -1,0 +1,51 @@
+{
+  "testSuite": "Database Validation",
+  "timestamp": "2026-07-16T11:37:31.964Z",
+  "thresholdMs": 100,
+  "totalRpcs": 8,
+  "passed": 0,
+  "failed": 8,
+  "passRate": 0,
+  "results": [
+    {
+      "rpcName": "hybrid_search_memories",
+      "error": "schema \"hyperspace\" does not exist",
+      "passesThreshold": false
+    },
+    {
+      "rpcName": "hybrid_search_emails",
+      "error": "schema \"hyperspace\" does not exist",
+      "passesThreshold": false
+    },
+    {
+      "rpcName": "hybrid_search_events",
+      "error": "schema \"hyperspace\" does not exist",
+      "passesThreshold": false
+    },
+    {
+      "rpcName": "resolve_nodes_for_memories",
+      "error": "schema \"graph\" does not exist",
+      "passesThreshold": false
+    },
+    {
+      "rpcName": "graph_render_relations",
+      "error": "schema \"graph\" does not exist",
+      "passesThreshold": false
+    },
+    {
+      "rpcName": "match_memory_candidates",
+      "error": "schema \"hyperspace\" does not exist",
+      "passesThreshold": false
+    },
+    {
+      "rpcName": "record_memory_retrievals",
+      "error": "schema \"memory\" does not exist",
+      "passesThreshold": false
+    },
+    {
+      "rpcName": "increment_usage",
+      "error": "schema \"usage\" does not exist",
+      "passesThreshold": false
+    }
+  ]
+}

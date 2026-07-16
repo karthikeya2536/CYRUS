@@ -64,7 +64,8 @@ Output STRICTLY valid JSON, nothing else.`;
     const res = await LLMRouter.execute({
       systemPrompt,
       userPrompt: query,
-      expectedFormat: 'json'
+      expectedFormat: 'json',
+      capability: 'reasoning'
     });
 
     try {
@@ -72,9 +73,9 @@ Output STRICTLY valid JSON, nothing else.`;
       const match = content.match(/\{.*\}/s);
       if (match) content = match[0];
       const parsed = JSON.parse(content);
-      
+
       return {
-        intent: ['deadline', 'person', 'project'].includes(parsed.intent?.toLowerCase()) ? parsed.intent.toLowerCase() : 'general',
+        intent: ['deadline', 'person', 'project'].includes(parsed.intent?.toLowerCase()) ? parsed.intent?.toLowerCase() : 'general',
         entities: Array.isArray(parsed.entities) ? parsed.entities : [],
         isComplex: true
       };

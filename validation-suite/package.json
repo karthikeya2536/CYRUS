@@ -1,0 +1,22 @@
+{
+  "name": "cyrus-v2-validation-suite",
+  "version": "1.0.0",
+  "description": "Validation suite for Cyrus V2 production readiness",
+  "main": "index.js",
+  "scripts": {
+    "load-test": "node load-test/index.js",
+    "soak-test": "node soak-test/index.js",
+    "failure-injection": "node failure-injection/index.js",
+    "database": "node database/index.js",
+    "large-dataset": "node large-dataset/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.6.1",
+    "pg": "^8.22.0",
+    "uuid": "^14.0.1"
+  }
+}

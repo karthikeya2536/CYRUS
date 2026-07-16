@@ -1,0 +1,3374 @@
+{
+  "meta": {
+    "name": "graph-eval-production-v1",
+    "description": "Curated production benchmark v1 \u00e2\u20ac\u201d 100+ real-world query patterns against the synthetic knowledge graph. Tests all intent classes, edge cases, and multi-hop traversals. This is the permanent regression benchmark; every release evaluates against exactly the same dataset. (E2E extended: includes expected_facts)",
+    "created": "2026-07-03",
+    "schema_version": 3,
+    "tags": [
+      "production",
+      "regression",
+      "curated"
+    ],
+    "categories": {
+      "blocking": "Dependency and blocking queries ('What blocks X?', 'What does Y need?')",
+      "who": "Person resolution queries ('Who works on X?', 'Who is assigned to Y?')",
+      "working_on": "Work allocation queries ('What is X working on?', 'What projects is Y assigned to?')",
+      "general": "General connection queries ('What is connected to X?', 'Show me relations for Y')",
+      "multi_intent": "Queries that could match multiple intents or require intent disambiguation",
+      "edge": "Edge cases: empty results, quality gates, no-outgoing-edges, stale nodes"
+    }
+  },
+  "graph": {
+    "nodes": [
+      {
+        "key": "xconnect",
+        "type": "project",
+        "quality_score": 3
+      },
+      {
+        "key": "projectlibero",
+        "type": "project",
+        "quality_score": 3
+      },
+      {
+        "key": "projectzephyr",
+        "type": "project",
+        "quality_score": 3
+      },
+      {
+        "key": "keerthana",
+        "type": "person",
+        "quality_score": 3
+      },
+      {
+        "key": "basitiqbal",
+        "type": "person",
+        "quality_score": 3
+      },
+      {
+        "key": "sramesh",
+        "type": "person",
+        "quality_score": 3
+      },
+      {
+        "key": "urgentapp",
+        "type": "project",
+        "quality_score": 3
+      },
+      {
+        "key": "deploydashboard",
+        "type": "project",
+        "quality_score": 3
+      },
+      {
+        "key": "authservice",
+        "type": "project",
+        "quality_score": 3
+      },
+      {
+        "key": "databasemigration",
+        "type": "project",
+        "quality_score": 3
+      },
+      {
+        "key": "legaldocument",
+        "type": "document",
+        "quality_score": 2
+      },
+      {
+        "key": "legalreview",
+        "type": "project",
+        "quality_score": 3
+      },
+      {
+        "key": "signoff",
+        "type": "milestone",
+        "quality_score": 2
+      },
+      {
+        "key": "apigateway",
+        "type": "project",
+        "quality_score": 3
+      },
+      {
+        "key": "notificationqueue",
+        "type": "project",
+        "quality_score": 3
+      },
+      {
+        "key": "samantha",
+        "type": "person",
+        "quality_score": 3
+      },
+      {
+        "key": "michaelchen",
+        "type": "person",
+        "quality_score": 3
+      },
+      {
+        "key": "priyapatel",
+        "type": "person",
+        "quality_score": 3
+      },
+      {
+        "key": "oldlegacy",
+        "type": "project",
+        "quality_score": 1
+      },
+      {
+        "key": "stalecontact",
+        "type": "person",
+        "quality_score": 0
+      },
+      {
+        "key": "genericresource",
+        "type": "resource",
+        "quality_score": 0
+      },
+      {
+        "key": "emailgateway",
+        "type": "project",
+        "quality_score": 3
+      },
+      {
+        "key": "oauthservice",
+        "type": "project",
+        "quality_score": 3
+      },
+      {
+        "key": "devops",
+        "type": "team",
+        "quality_score": 2
+      },
+      {
+        "key": "jiraintegration",
+        "type": "project",
+        "quality_score": 3
+      },
+      {
+        "key": "slackbot",
+        "type": "project",
+        "quality_score": 2
+      }
+    ],
+    "edges": [
+      {
+        "source": "xconnect",
+        "target": "projectlibero",
+        "relationship": "blocked_by",
+        "confidence": 0.95
+      },
+      {
+        "source": "xconnect",
+        "target": "projectzephyr",
+        "relationship": "requires",
+        "confidence": 0.85
+      },
+      {
+        "source": "xconnect",
+        "target": "keerthana",
+        "relationship": "assigned_to",
+        "confidence": 0.88
+      },
+      {
+        "source": "keerthana",
+        "target": "xconnect",
+        "relationship": "works_on",
+        "confidence": 0.9
+      },
+      {
+        "source": "keerthana",
+        "target": "projectlibero",
+        "relationship": "collaborates_on",
+        "confidence": 0.65
+      },
+      {
+        "source": "keerthana",
+        "target": "apigateway",
+        "relationship": "collaborates_on",
+        "confidence": 0.55
+      },
+      {
+        "source": "keerthana",
+        "target": "slackbot",
+        "relationship": "works_on",
+        "confidence": 0.8
+      },
+      {
+        "source": "basitiqbal",
+        "target": "projectlibero",
+        "relationship": "works_on",
+        "confidence": 0.9
+      },
+      {
+        "source": "basitiqbal",
+        "target": "xconnect",
+        "relationship": "collaborates_on",
+        "confidence": 0.75
+      },
+      {
+        "source": "sramesh",
+        "target": "projectzephyr",
+        "relationship": "works_on",
+        "confidence": 0.85
+      },
+      {
+        "source": "sramesh",
+        "target": "authservice",
+        "relationship": "works_on",
+        "confidence": 0.88
+      },
+      {
+        "source": "sramesh",
+        "target": "slackbot",
+        "relationship": "collaborates_on",
+        "confidence": 0.65
+      },
+      {
+        "source": "urgentapp",
+        "target": "deploydashboard",
+        "relationship": "blocked_by",
+        "confidence": 0.9
+      },
+      {
+        "source": "urgentapp",
+        "target": "signoff",
+        "relationship": "depends_on",
+        "confidence": 0.7
+      },
+      {
+        "source": "deploydashboard",
+        "target": "legalreview",
+        "relationship": "awaiting",
+        "confidence": 0.95
+      },
+      {
+        "source": "legalreview",
+        "target": "legaldocument",
+        "relationship": "requires",
+        "confidence": 0.8
+      },
+      {
+        "source": "legalreview",
+        "target": "signoff",
+        "relationship": "depends_on",
+        "confidence": 0.85
+      },
+      {
+        "source": "authservice",
+        "target": "databasemigration",
+        "relationship": "depends_on",
+        "confidence": 0.92
+      },
+      {
+        "source": "michaelchen",
+        "target": "authservice",
+        "relationship": "assigned_to",
+        "confidence": 0.9
+      },
+      {
+        "source": "michaelchen",
+        "target": "apigateway",
+        "relationship": "works_on",
+        "confidence": 0.82
+      },
+      {
+        "source": "priyapatel",
+        "target": "legalreview",
+        "relationship": "works_on",
+        "confidence": 0.85
+      },
+      {
+        "source": "priyapatel",
+        "target": "xconnect",
+        "relationship": "contact_for",
+        "confidence": 0.7
+      },
+      {
+        "source": "samantha",
+        "target": "urgentapp",
+        "relationship": "works_on",
+        "confidence": 0.92
+      },
+      {
+        "source": "samantha",
+        "target": "deploydashboard",
+        "relationship": "collaborates_on",
+        "confidence": 0.6
+      },
+      {
+        "source": "samantha",
+        "target": "xconnect",
+        "relationship": "contact_for",
+        "confidence": 0.65
+      },
+      {
+        "source": "apigateway",
+        "target": "authservice",
+        "relationship": "requires",
+        "confidence": 0.85
+      },
+      {
+        "source": "apigateway",
+        "target": "notificationqueue",
+        "relationship": "depends_on",
+        "confidence": 0.75
+      },
+      {
+        "source": "jiraintegration",
+        "target": "authservice",
+        "relationship": "requires",
+        "confidence": 0.7
+      },
+      {
+        "source": "jiraintegration",
+        "target": "notificationqueue",
+        "relationship": "requires",
+        "confidence": 0.65
+      },
+      {
+        "source": "devops",
+        "target": "deploydashboard",
+        "relationship": "works_on",
+        "confidence": 0.75
+      },
+      {
+        "source": "devops",
+        "target": "databasemigration",
+        "relationship": "collaborates_on",
+        "confidence": 0.6
+      },
+      {
+        "source": "emailgateway",
+        "target": "notificationqueue",
+        "relationship": "requires",
+        "confidence": 0.8
+      },
+      {
+        "source": "emailgateway",
+        "target": "authservice",
+        "relationship": "depends_on",
+        "confidence": 0.78
+      },
+      {
+        "source": "oauthservice",
+        "target": "authservice",
+        "relationship": "depends_on",
+        "confidence": 0.9
+      },
+      {
+        "source": "projectlibero",
+        "target": "basitiqbal",
+        "relationship": "assigned_to",
+        "confidence": 0.85
+      },
+      {
+        "source": "projectzephyr",
+        "target": "databasemigration",
+        "relationship": "requires",
+        "confidence": 0.72
+      },
+      {
+        "source": "oldlegacy",
+        "target": "xconnect",
+        "relationship": "blocked_by",
+        "confidence": 0.6
+      },
+      {
+        "source": "stalecontact",
+        "target": "keerthana",
+        "relationship": "contact_for",
+        "confidence": 0.5
+      },
+      {
+        "source": "genericresource",
+        "target": "urgentapp",
+        "relationship": "requires",
+        "confidence": 0.6
+      },
+      {
+        "source": "notificationservice",
+        "target": "xconnect",
+        "relationship": "associated_with",
+        "confidence": 0.5
+      },
+      {
+        "source": "xconnect",
+        "target": "meetingroom",
+        "relationship": "regarding",
+        "confidence": 0.4
+      },
+      {
+        "source": "keerthana",
+        "target": "generalupdate",
+        "relationship": "involved_in",
+        "confidence": 0.35
+      },
+      {
+        "source": "xconnect",
+        "target": "oldfeature",
+        "relationship": "mentioned",
+        "confidence": 0.3
+      },
+      {
+        "source": "notificationservice",
+        "target": "xconnect",
+        "relationship": "interested_in",
+        "confidence": 0.25
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "dep-blocking-1",
+      "query": "What is blocking xConnect?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "xconnect"
+      ],
+      "expected_relations": [
+        {
+          "source": "xconnect",
+          "relationship": "blocked_by",
+          "target": "projectlibero"
+        }
+      ],
+      "expected_facts": [
+        "xconnect blocked_by projectlibero"
+      ]
+    },
+    {
+      "id": "dep-blocking-2",
+      "query": "What does DeployDashboard need?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "deploydashboard"
+      ],
+      "expected_relations": [
+        {
+          "source": "deploydashboard",
+          "relationship": "awaiting",
+          "target": "legalreview"
+        }
+      ],
+      "expected_facts": [
+        "deploydashboard awaiting legalreview"
+      ]
+    },
+    {
+      "id": "dep-blocking-3",
+      "query": "What does AuthService depend on?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "authservice"
+      ],
+      "expected_relations": [
+        {
+          "source": "authservice",
+          "relationship": "depends_on",
+          "target": "databasemigration"
+        }
+      ],
+      "expected_facts": [
+        "authservice depends_on databasemigration"
+      ]
+    },
+    {
+      "id": "dep-blocking-4",
+      "query": "What is blocking the urgent app?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "urgentapp"
+      ],
+      "expected_relations": [
+        {
+          "source": "urgentapp",
+          "relationship": "blocked_by",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "urgentapp",
+          "relationship": "depends_on",
+          "target": "signoff"
+        }
+      ],
+      "expected_facts": [
+        "urgentapp blocked_by deploydashboard",
+        "urgentapp depends_on signoff"
+      ]
+    },
+    {
+      "id": "dep-blocking-5",
+      "query": "What does API Gateway need?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "apigateway"
+      ],
+      "expected_relations": [
+        {
+          "source": "apigateway",
+          "relationship": "requires",
+          "target": "authservice"
+        },
+        {
+          "source": "apigateway",
+          "relationship": "depends_on",
+          "target": "notificationqueue"
+        }
+      ],
+      "expected_facts": [
+        "apigateway requires authservice",
+        "apigateway depends_on notificationqueue"
+      ]
+    },
+    {
+      "id": "dep-blocking-6",
+      "query": "What does LegalReview need?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "legalreview"
+      ],
+      "expected_relations": [
+        {
+          "source": "legalreview",
+          "relationship": "requires",
+          "target": "legaldocument"
+        },
+        {
+          "source": "legalreview",
+          "relationship": "depends_on",
+          "target": "signoff"
+        }
+      ],
+      "expected_facts": [
+        "legalreview requires legaldocument",
+        "legalreview depends_on signoff"
+      ]
+    },
+    {
+      "id": "dep-blocking-7",
+      "query": "What does EmailGateway need?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "emailgateway"
+      ],
+      "expected_relations": [
+        {
+          "source": "emailgateway",
+          "relationship": "requires",
+          "target": "notificationqueue"
+        },
+        {
+          "source": "emailgateway",
+          "relationship": "depends_on",
+          "target": "authservice"
+        }
+      ],
+      "expected_facts": [
+        "emailgateway requires notificationqueue",
+        "emailgateway depends_on authservice"
+      ]
+    },
+    {
+      "id": "dep-blocking-8",
+      "query": "What does OAuthService depend on?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "oauthservice"
+      ],
+      "expected_relations": [
+        {
+          "source": "oauthservice",
+          "relationship": "depends_on",
+          "target": "authservice"
+        }
+      ],
+      "expected_facts": [
+        "oauthservice depends_on authservice"
+      ]
+    },
+    {
+      "id": "dep-blocking-9",
+      "query": "What does JiraIntegration need?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "jiraintegration"
+      ],
+      "expected_relations": [
+        {
+          "source": "jiraintegration",
+          "relationship": "requires",
+          "target": "authservice"
+        },
+        {
+          "source": "jiraintegration",
+          "relationship": "requires",
+          "target": "notificationqueue"
+        }
+      ],
+      "expected_facts": [
+        "jiraintegration requires authservice",
+        "jiraintegration requires notificationqueue"
+      ]
+    },
+    {
+      "id": "dep-blocking-10",
+      "query": "What does ProjectZephyr depend on?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "projectzephyr"
+      ],
+      "expected_relations": [
+        {
+          "source": "projectzephyr",
+          "relationship": "requires",
+          "target": "databasemigration"
+        }
+      ],
+      "expected_facts": [
+        "projectzephyr requires databasemigration"
+      ]
+    },
+    {
+      "id": "dep-blocking-11",
+      "query": "What blocks deploy?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "deploydashboard"
+      ],
+      "expected_relations": [
+        {
+          "source": "deploydashboard",
+          "relationship": "awaiting",
+          "target": "legalreview"
+        }
+      ],
+      "expected_facts": [
+        "deploydashboard awaiting legalreview"
+      ]
+    },
+    {
+      "id": "dep-blocking-12",
+      "query": "Show me blocking issues for legal",
+      "intent": "blocking",
+      "start_node_keys": [
+        "legalreview"
+      ],
+      "expected_relations": [
+        {
+          "source": "legalreview",
+          "relationship": "requires",
+          "target": "legaldocument"
+        },
+        {
+          "source": "legalreview",
+          "relationship": "depends_on",
+          "target": "signoff"
+        }
+      ],
+      "expected_facts": [
+        "legalreview requires legaldocument",
+        "legalreview depends_on signoff"
+      ]
+    },
+    {
+      "id": "dep-blocking-13",
+      "query": "Are there blockers for ProjectLibero?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "projectlibero"
+      ],
+      "expected_relations": [],
+      "expected_facts": []
+    },
+    {
+      "id": "dep-blocking-14",
+      "query": "Dependency chain for urgent-app deployment",
+      "intent": "blocking",
+      "start_node_keys": [
+        "urgentapp",
+        "deploydashboard"
+      ],
+      "expected_relations": [
+        {
+          "source": "urgentapp",
+          "relationship": "blocked_by",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "deploydashboard",
+          "relationship": "awaiting",
+          "target": "legalreview"
+        }
+      ],
+      "expected_facts": [
+        "urgentapp blocked_by deploydashboard",
+        "deploydashboard awaiting legalreview"
+      ]
+    },
+    {
+      "id": "dep-blocking-15",
+      "query": "Find all dependencies for API Gateway",
+      "intent": "blocking",
+      "start_node_keys": [
+        "apigateway"
+      ],
+      "expected_relations": [
+        {
+          "source": "apigateway",
+          "relationship": "requires",
+          "target": "authservice"
+        },
+        {
+          "source": "apigateway",
+          "relationship": "depends_on",
+          "target": "notificationqueue"
+        }
+      ],
+      "expected_facts": [
+        "apigateway requires authservice",
+        "apigateway depends_on notificationqueue"
+      ]
+    },
+    {
+      "id": "dep-blocking-16",
+      "query": "What's blocking the notification system?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "notificationqueue"
+      ],
+      "expected_relations": [],
+      "expected_facts": []
+    },
+    {
+      "id": "dep-blocking-17",
+      "query": "What's in the way of getting auth done?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "authservice"
+      ],
+      "expected_relations": [
+        {
+          "source": "authservice",
+          "relationship": "depends_on",
+          "target": "databasemigration"
+        }
+      ],
+      "expected_facts": [
+        "authservice depends_on databasemigration"
+      ]
+    },
+    {
+      "id": "dep-blocking-18",
+      "query": "Unblocking items for the legal review process",
+      "intent": "blocking",
+      "start_node_keys": [
+        "legalreview"
+      ],
+      "expected_relations": [
+        {
+          "source": "legalreview",
+          "relationship": "requires",
+          "target": "legaldocument"
+        },
+        {
+          "source": "legalreview",
+          "relationship": "depends_on",
+          "target": "signoff"
+        }
+      ],
+      "expected_facts": [
+        "legalreview requires legaldocument",
+        "legalreview depends_on signoff"
+      ]
+    },
+    {
+      "id": "dep-blocking-19",
+      "query": "Show me what's needed before OAuthService can ship",
+      "intent": "blocking",
+      "start_node_keys": [
+        "oauthservice"
+      ],
+      "expected_relations": [
+        {
+          "source": "oauthservice",
+          "relationship": "depends_on",
+          "target": "authservice"
+        }
+      ],
+      "expected_facts": [
+        "oauthservice depends_on authservice"
+      ]
+    },
+    {
+      "id": "dep-blocking-20",
+      "query": "What prerequisites does JiraIntegration have?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "jiraintegration"
+      ],
+      "expected_relations": [
+        {
+          "source": "jiraintegration",
+          "relationship": "requires",
+          "target": "authservice"
+        },
+        {
+          "source": "jiraintegration",
+          "relationship": "requires",
+          "target": "notificationqueue"
+        }
+      ],
+      "expected_facts": [
+        "jiraintegration requires authservice",
+        "jiraintegration requires notificationqueue"
+      ]
+    },
+    {
+      "id": "dep-general-1",
+      "query": "Show me the full dependency chain for xConnect",
+      "intent": "general",
+      "start_node_keys": [
+        "xconnect"
+      ],
+      "expected_relations": [
+        {
+          "source": "xconnect",
+          "relationship": "blocked_by",
+          "target": "projectlibero"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "requires",
+          "target": "projectzephyr"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "assigned_to",
+          "target": "keerthana"
+        }
+      ],
+      "expected_facts": [
+        "xconnect blocked_by projectlibero",
+        "xconnect requires projectzephyr",
+        "xconnect assigned_to keerthana"
+      ]
+    },
+    {
+      "id": "dep-general-2",
+      "query": "What is connected to API Gateway?",
+      "intent": "general",
+      "start_node_keys": [
+        "apigateway"
+      ],
+      "expected_relations": [
+        {
+          "source": "apigateway",
+          "relationship": "requires",
+          "target": "authservice"
+        },
+        {
+          "source": "apigateway",
+          "relationship": "depends_on",
+          "target": "notificationqueue"
+        }
+      ],
+      "expected_facts": [
+        "apigateway requires authservice",
+        "apigateway depends_on notificationqueue"
+      ]
+    },
+    {
+      "id": "dep-general-3",
+      "query": "List what LegalReview connects to",
+      "intent": "general",
+      "start_node_keys": [
+        "legalreview"
+      ],
+      "expected_relations": [
+        {
+          "source": "legalreview",
+          "relationship": "requires",
+          "target": "legaldocument"
+        },
+        {
+          "source": "legalreview",
+          "relationship": "depends_on",
+          "target": "signoff"
+        }
+      ],
+      "expected_facts": [
+        "legalreview requires legaldocument",
+        "legalreview depends_on signoff"
+      ]
+    },
+    {
+      "id": "dep-general-4",
+      "query": "What's the connection map for ProjectZephyr?",
+      "intent": "general",
+      "start_node_keys": [
+        "projectzephyr"
+      ],
+      "expected_relations": [
+        {
+          "source": "projectzephyr",
+          "relationship": "requires",
+          "target": "databasemigration"
+        }
+      ],
+      "expected_facts": [
+        "projectzephyr requires databasemigration"
+      ]
+    },
+    {
+      "id": "dep-general-5",
+      "query": "Show everything linked to EmailGateway",
+      "intent": "general",
+      "start_node_keys": [
+        "emailgateway"
+      ],
+      "expected_relations": [
+        {
+          "source": "emailgateway",
+          "relationship": "requires",
+          "target": "notificationqueue"
+        },
+        {
+          "source": "emailgateway",
+          "relationship": "depends_on",
+          "target": "authservice"
+        }
+      ],
+      "expected_facts": [
+        "emailgateway requires notificationqueue",
+        "emailgateway depends_on authservice"
+      ]
+    },
+    {
+      "id": "dep-general-6",
+      "query": "What's connected to the urgent app?",
+      "intent": "general",
+      "start_node_keys": [
+        "urgentapp"
+      ],
+      "expected_relations": [
+        {
+          "source": "urgentapp",
+          "relationship": "blocked_by",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "urgentapp",
+          "relationship": "depends_on",
+          "target": "signoff"
+        }
+      ],
+      "expected_facts": [
+        "urgentapp blocked_by deploydashboard",
+        "urgentapp depends_on signoff"
+      ]
+    },
+    {
+      "id": "dep-general-7",
+      "query": "Project network for auth ecosystem",
+      "intent": "general",
+      "start_node_keys": [
+        "authservice",
+        "apigateway",
+        "oauthservice"
+      ],
+      "expected_relations": [
+        {
+          "source": "authservice",
+          "relationship": "depends_on",
+          "target": "databasemigration"
+        },
+        {
+          "source": "apigateway",
+          "relationship": "requires",
+          "target": "authservice"
+        },
+        {
+          "source": "apigateway",
+          "relationship": "depends_on",
+          "target": "notificationqueue"
+        },
+        {
+          "source": "oauthservice",
+          "relationship": "depends_on",
+          "target": "authservice"
+        }
+      ],
+      "expected_facts": [
+        "authservice depends_on databasemigration",
+        "apigateway requires authservice",
+        "apigateway depends_on notificationqueue",
+        "oauthservice depends_on authservice"
+      ]
+    },
+    {
+      "id": "dep-general-8",
+      "query": "Map dependencies for the notification stack",
+      "intent": "general",
+      "start_node_keys": [
+        "notificationqueue",
+        "emailgateway",
+        "apigateway"
+      ],
+      "expected_relations": [
+        {
+          "source": "apigateway",
+          "relationship": "requires",
+          "target": "authservice"
+        },
+        {
+          "source": "apigateway",
+          "relationship": "depends_on",
+          "target": "notificationqueue"
+        },
+        {
+          "source": "emailgateway",
+          "relationship": "requires",
+          "target": "notificationqueue"
+        },
+        {
+          "source": "emailgateway",
+          "relationship": "depends_on",
+          "target": "authservice"
+        }
+      ],
+      "expected_facts": [
+        "apigateway requires authservice",
+        "apigateway depends_on notificationqueue",
+        "emailgateway requires notificationqueue",
+        "emailgateway depends_on authservice"
+      ]
+    },
+    {
+      "id": "people-who-1",
+      "query": "Who works on xConnect?",
+      "intent": "who",
+      "start_node_keys": [
+        "xconnect",
+        "keerthana",
+        "basitiqbal",
+        "samantha",
+        "priyapatel"
+      ],
+      "expected_relations": [
+        {
+          "source": "basitiqbal",
+          "relationship": "collaborates_on",
+          "target": "xconnect"
+        },
+        {
+          "source": "priyapatel",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        },
+        {
+          "source": "samantha",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        }
+      ],
+      "expected_facts": [
+        "basitiqbal collaborates_on xconnect",
+        "priyapatel contact_for xconnect",
+        "samantha contact_for xconnect"
+      ]
+    },
+    {
+      "id": "people-who-2",
+      "query": "Who is assigned to AuthService?",
+      "intent": "who",
+      "start_node_keys": [
+        "authservice",
+        "michaelchen"
+      ],
+      "expected_relations": [
+        {
+          "source": "michaelchen",
+          "relationship": "assigned_to",
+          "target": "authservice"
+        }
+      ],
+      "expected_facts": [
+        "michaelchen assigned_to authservice"
+      ]
+    },
+    {
+      "id": "people-who-3",
+      "query": "Who can I contact about xConnect?",
+      "intent": "who",
+      "start_node_keys": [
+        "xconnect",
+        "priyapatel",
+        "samantha"
+      ],
+      "expected_relations": [
+        {
+          "source": "priyapatel",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        },
+        {
+          "source": "samantha",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        }
+      ],
+      "expected_facts": [
+        "priyapatel contact_for xconnect",
+        "samantha contact_for xconnect"
+      ]
+    },
+    {
+      "id": "people-who-4",
+      "query": "Who collaborates on xConnect?",
+      "intent": "who",
+      "start_node_keys": [
+        "xconnect",
+        "keerthana",
+        "basitiqbal"
+      ],
+      "expected_relations": [
+        {
+          "source": "basitiqbal",
+          "relationship": "collaborates_on",
+          "target": "xconnect"
+        }
+      ],
+      "expected_facts": [
+        "basitiqbal collaborates_on xconnect"
+      ]
+    },
+    {
+      "id": "people-who-5",
+      "query": "Who works on ProjectZephyr?",
+      "intent": "who",
+      "start_node_keys": [
+        "projectzephyr",
+        "sramesh"
+      ],
+      "expected_relations": [
+        {
+          "source": "sramesh",
+          "relationship": "works_on",
+          "target": "projectzephyr"
+        }
+      ],
+      "expected_facts": [
+        "sramesh works_on projectzephyr"
+      ]
+    },
+    {
+      "id": "people-who-6",
+      "query": "Who is working on the urgent app?",
+      "intent": "who",
+      "start_node_keys": [
+        "urgentapp",
+        "samantha"
+      ],
+      "expected_relations": [
+        {
+          "source": "samantha",
+          "relationship": "works_on",
+          "target": "urgentapp"
+        }
+      ],
+      "expected_facts": [
+        "samantha works_on urgentapp"
+      ]
+    },
+    {
+      "id": "people-who-7",
+      "query": "Who is working on ProjectLibero?",
+      "intent": "who",
+      "start_node_keys": [
+        "projectlibero",
+        "basitiqbal",
+        "keerthana"
+      ],
+      "expected_relations": [
+        {
+          "source": "basitiqbal",
+          "relationship": "works_on",
+          "target": "projectlibero"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "collaborates_on",
+          "target": "projectlibero"
+        }
+      ],
+      "expected_facts": [
+        "basitiqbal works_on projectlibero",
+        "keerthana collaborates_on projectlibero"
+      ]
+    },
+    {
+      "id": "people-who-8",
+      "query": "Who works on API Gateway?",
+      "intent": "who",
+      "start_node_keys": [
+        "apigateway",
+        "michaelchen",
+        "keerthana"
+      ],
+      "expected_relations": [
+        {
+          "source": "keerthana",
+          "relationship": "collaborates_on",
+          "target": "apigateway"
+        }
+      ],
+      "expected_facts": [
+        "keerthana collaborates_on apigateway"
+      ]
+    },
+    {
+      "id": "people-who-9",
+      "query": "Who is working on DataMigration?",
+      "intent": "who",
+      "start_node_keys": [
+        "databasemigration",
+        "devops"
+      ],
+      "expected_relations": [
+        {
+          "source": "devops",
+          "relationship": "collaborates_on",
+          "target": "databasemigration"
+        }
+      ],
+      "expected_facts": [
+        "devops collaborates_on databasemigration"
+      ]
+    },
+    {
+      "id": "people-who-10",
+      "query": "Who is assigned to xConnect?",
+      "intent": "who",
+      "start_node_keys": [
+        "xconnect"
+      ],
+      "expected_relations": [
+        {
+          "source": "xconnect",
+          "relationship": "assigned_to",
+          "target": "keerthana"
+        }
+      ],
+      "expected_facts": [
+        "xconnect assigned_to keerthana"
+      ]
+    },
+    {
+      "id": "people-who-11",
+      "query": "Who works on SlackBot?",
+      "intent": "who",
+      "start_node_keys": [
+        "slackbot",
+        "keerthana",
+        "sramesh"
+      ],
+      "expected_relations": [
+        {
+          "source": "sramesh",
+          "relationship": "collaborates_on",
+          "target": "slackbot"
+        }
+      ],
+      "expected_facts": [
+        "sramesh collaborates_on slackbot"
+      ]
+    },
+    {
+      "id": "people-who-12",
+      "query": "Who's the point of contact for xConnect?",
+      "intent": "who",
+      "start_node_keys": [
+        "xconnect",
+        "priyapatel",
+        "samantha"
+      ],
+      "expected_relations": [
+        {
+          "source": "priyapatel",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        },
+        {
+          "source": "samantha",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        }
+      ],
+      "expected_facts": [
+        "priyapatel contact_for xconnect",
+        "samantha contact_for xconnect"
+      ]
+    },
+    {
+      "id": "people-who-13",
+      "query": "Find people involved with DeployDashboard",
+      "intent": "who",
+      "start_node_keys": [
+        "deploydashboard",
+        "samantha",
+        "devops"
+      ],
+      "expected_relations": [
+        {
+          "source": "samantha",
+          "relationship": "collaborates_on",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "devops",
+          "relationship": "works_on",
+          "target": "deploydashboard"
+        }
+      ],
+      "expected_facts": [
+        "samantha collaborates_on deploydashboard",
+        "devops works_on deploydashboard"
+      ]
+    },
+    {
+      "id": "people-who-14",
+      "query": "Team members working on legal review",
+      "intent": "who",
+      "start_node_keys": [
+        "legalreview",
+        "priyapatel"
+      ],
+      "expected_relations": [
+        {
+          "source": "priyapatel",
+          "relationship": "works_on",
+          "target": "legalreview"
+        }
+      ],
+      "expected_facts": [
+        "priyapatel works_on legalreview"
+      ]
+    },
+    {
+      "id": "people-who-15",
+      "query": "Who should I talk to about ProjectZephyr?",
+      "intent": "who",
+      "start_node_keys": [
+        "projectzephyr",
+        "sramesh"
+      ],
+      "expected_relations": [
+        {
+          "source": "sramesh",
+          "relationship": "works_on",
+          "target": "projectzephyr"
+        }
+      ],
+      "expected_facts": [
+        "sramesh works_on projectzephyr"
+      ]
+    },
+    {
+      "id": "people-who-16",
+      "query": "Who's on the DevOps team?",
+      "intent": "who",
+      "start_node_keys": [
+        "devops"
+      ],
+      "expected_relations": [
+        {
+          "source": "devops",
+          "relationship": "works_on",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "devops",
+          "relationship": "collaborates_on",
+          "target": "databasemigration"
+        }
+      ],
+      "expected_facts": [
+        "devops works_on deploydashboard",
+        "devops collaborates_on databasemigration"
+      ]
+    },
+    {
+      "id": "people-who-17",
+      "query": "Who is working on SlackBot?",
+      "intent": "who",
+      "start_node_keys": [
+        "slackbot",
+        "keerthana",
+        "sramesh"
+      ],
+      "expected_relations": [
+        {
+          "source": "sramesh",
+          "relationship": "collaborates_on",
+          "target": "slackbot"
+        }
+      ],
+      "expected_facts": [
+        "sramesh collaborates_on slackbot"
+      ]
+    },
+    {
+      "id": "work-what-1",
+      "query": "What is Keerthana working on?",
+      "intent": "working_on",
+      "start_node_keys": [
+        "keerthana"
+      ],
+      "expected_relations": [
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "xconnect"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "slackbot"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "collaborates_on",
+          "target": "projectlibero"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "collaborates_on",
+          "target": "apigateway"
+        }
+      ],
+      "expected_facts": [
+        "keerthana works_on xconnect",
+        "keerthana works_on slackbot",
+        "keerthana collaborates_on projectlibero",
+        "keerthana collaborates_on apigateway"
+      ]
+    },
+    {
+      "id": "work-what-2",
+      "query": "What is Basit working on?",
+      "intent": "working_on",
+      "start_node_keys": [
+        "basitiqbal"
+      ],
+      "expected_relations": [
+        {
+          "source": "basitiqbal",
+          "relationship": "works_on",
+          "target": "projectlibero"
+        },
+        {
+          "source": "basitiqbal",
+          "relationship": "collaborates_on",
+          "target": "xconnect"
+        }
+      ],
+      "expected_facts": [
+        "basitiqbal works_on projectlibero",
+        "basitiqbal collaborates_on xconnect"
+      ]
+    },
+    {
+      "id": "work-what-3",
+      "query": "What is S Ramesh working on?",
+      "intent": "working_on",
+      "start_node_keys": [
+        "sramesh"
+      ],
+      "expected_relations": [
+        {
+          "source": "sramesh",
+          "relationship": "works_on",
+          "target": "projectzephyr"
+        },
+        {
+          "source": "sramesh",
+          "relationship": "works_on",
+          "target": "authservice"
+        },
+        {
+          "source": "sramesh",
+          "relationship": "collaborates_on",
+          "target": "slackbot"
+        }
+      ],
+      "expected_facts": [
+        "sramesh works_on projectzephyr",
+        "sramesh works_on authservice",
+        "sramesh collaborates_on slackbot"
+      ]
+    },
+    {
+      "id": "work-what-4",
+      "query": "What projects is Michael Chen assigned to?",
+      "intent": "working_on",
+      "start_node_keys": [
+        "michaelchen"
+      ],
+      "expected_relations": [
+        {
+          "source": "michaelchen",
+          "relationship": "assigned_to",
+          "target": "authservice"
+        },
+        {
+          "source": "michaelchen",
+          "relationship": "works_on",
+          "target": "apigateway"
+        }
+      ],
+      "expected_facts": [
+        "michaelchen assigned_to authservice",
+        "michaelchen works_on apigateway"
+      ]
+    },
+    {
+      "id": "work-what-5",
+      "query": "What is Samantha working on?",
+      "intent": "working_on",
+      "start_node_keys": [
+        "samantha"
+      ],
+      "expected_relations": [
+        {
+          "source": "samantha",
+          "relationship": "works_on",
+          "target": "urgentapp"
+        },
+        {
+          "source": "samantha",
+          "relationship": "collaborates_on",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "samantha",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        }
+      ],
+      "expected_facts": [
+        "samantha works_on urgentapp",
+        "samantha collaborates_on deploydashboard",
+        "samantha contact_for xconnect"
+      ]
+    },
+    {
+      "id": "work-what-6",
+      "query": "What is Priya Patel working on?",
+      "intent": "working_on",
+      "start_node_keys": [
+        "priyapatel"
+      ],
+      "expected_relations": [
+        {
+          "source": "priyapatel",
+          "relationship": "works_on",
+          "target": "legalreview"
+        },
+        {
+          "source": "priyapatel",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        }
+      ],
+      "expected_facts": [
+        "priyapatel works_on legalreview",
+        "priyapatel contact_for xconnect"
+      ]
+    },
+    {
+      "id": "work-what-7",
+      "query": "What is the DevOps team working on?",
+      "intent": "working_on",
+      "start_node_keys": [
+        "devops"
+      ],
+      "expected_relations": [
+        {
+          "source": "devops",
+          "relationship": "works_on",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "devops",
+          "relationship": "collaborates_on",
+          "target": "databasemigration"
+        }
+      ],
+      "expected_facts": [
+        "devops works_on deploydashboard",
+        "devops collaborates_on databasemigration"
+      ]
+    },
+    {
+      "id": "work-what-8",
+      "query": "What is xConnect assigned to?",
+      "intent": "working_on",
+      "start_node_keys": [
+        "xconnect"
+      ],
+      "expected_relations": [
+        {
+          "source": "xconnect",
+          "relationship": "assigned_to",
+          "target": "keerthana"
+        }
+      ],
+      "expected_facts": [
+        "xconnect assigned_to keerthana"
+      ]
+    },
+    {
+      "id": "work-what-9",
+      "query": "What is ProjectLibero assigned to?",
+      "intent": "working_on",
+      "start_node_keys": [
+        "projectlibero"
+      ],
+      "expected_relations": [
+        {
+          "source": "projectlibero",
+          "relationship": "assigned_to",
+          "target": "basitiqbal"
+        }
+      ],
+      "expected_facts": [
+        "projectlibero assigned_to basitiqbal"
+      ]
+    },
+    {
+      "id": "work-what-10",
+      "query": "Show me Keerthana's current workload",
+      "intent": "working_on",
+      "start_node_keys": [
+        "keerthana"
+      ],
+      "expected_relations": [
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "xconnect"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "slackbot"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "collaborates_on",
+          "target": "projectlibero"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "collaborates_on",
+          "target": "apigateway"
+        }
+      ],
+      "expected_facts": [
+        "keerthana works_on xconnect",
+        "keerthana works_on slackbot",
+        "keerthana collaborates_on projectlibero",
+        "keerthana collaborates_on apigateway"
+      ]
+    },
+    {
+      "id": "work-what-11",
+      "query": "What's Michael Chen working on these days?",
+      "intent": "working_on",
+      "start_node_keys": [
+        "michaelchen"
+      ],
+      "expected_relations": [
+        {
+          "source": "michaelchen",
+          "relationship": "assigned_to",
+          "target": "authservice"
+        },
+        {
+          "source": "michaelchen",
+          "relationship": "works_on",
+          "target": "apigateway"
+        }
+      ],
+      "expected_facts": [
+        "michaelchen assigned_to authservice",
+        "michaelchen works_on apigateway"
+      ]
+    },
+    {
+      "id": "work-what-12",
+      "query": "Tasks assigned to the DevOps team",
+      "intent": "working_on",
+      "start_node_keys": [
+        "devops"
+      ],
+      "expected_relations": [
+        {
+          "source": "devops",
+          "relationship": "works_on",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "devops",
+          "relationship": "collaborates_on",
+          "target": "databasemigration"
+        }
+      ],
+      "expected_facts": [
+        "devops works_on deploydashboard",
+        "devops collaborates_on databasemigration"
+      ]
+    },
+    {
+      "id": "work-what-13",
+      "query": "What is Basit's current project focus?",
+      "intent": "working_on",
+      "start_node_keys": [
+        "basitiqbal"
+      ],
+      "expected_relations": [
+        {
+          "source": "basitiqbal",
+          "relationship": "works_on",
+          "target": "projectlibero"
+        },
+        {
+          "source": "basitiqbal",
+          "relationship": "collaborates_on",
+          "target": "xconnect"
+        }
+      ],
+      "expected_facts": [
+        "basitiqbal works_on projectlibero",
+        "basitiqbal collaborates_on xconnect"
+      ]
+    },
+    {
+      "id": "work-what-14",
+      "query": "What deliverables does Priya own?",
+      "intent": "working_on",
+      "start_node_keys": [
+        "priyapatel"
+      ],
+      "expected_relations": [
+        {
+          "source": "priyapatel",
+          "relationship": "works_on",
+          "target": "legalreview"
+        },
+        {
+          "source": "priyapatel",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        }
+      ],
+      "expected_facts": [
+        "priyapatel works_on legalreview",
+        "priyapatel contact_for xconnect"
+      ]
+    },
+    {
+      "id": "multihop-1",
+      "query": "What is blocking the deployment chain?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "urgentapp",
+        "deploydashboard"
+      ],
+      "expected_relations": [
+        {
+          "source": "urgentapp",
+          "relationship": "blocked_by",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "deploydashboard",
+          "relationship": "awaiting",
+          "target": "legalreview"
+        }
+      ],
+      "expected_facts": [
+        "urgentapp blocked_by deploydashboard",
+        "deploydashboard awaiting legalreview"
+      ]
+    },
+    {
+      "id": "multihop-2",
+      "query": "What is connected through Keerthana and API Gateway?",
+      "intent": "general",
+      "start_node_keys": [
+        "keerthana",
+        "apigateway"
+      ],
+      "expected_relations": [
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "xconnect"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "slackbot"
+        },
+        {
+          "source": "apigateway",
+          "relationship": "requires",
+          "target": "authservice"
+        },
+        {
+          "source": "apigateway",
+          "relationship": "depends_on",
+          "target": "notificationqueue"
+        }
+      ],
+      "expected_facts": [
+        "keerthana works_on xconnect",
+        "keerthana works_on slackbot",
+        "apigateway requires authservice",
+        "apigateway depends_on notificationqueue"
+      ]
+    },
+    {
+      "id": "multihop-3",
+      "query": "Trace project dependencies for AuthService",
+      "intent": "general",
+      "start_node_keys": [
+        "authservice",
+        "michaelchen",
+        "sramesh"
+      ],
+      "expected_relations": [
+        {
+          "source": "authservice",
+          "relationship": "depends_on",
+          "target": "databasemigration"
+        },
+        {
+          "source": "michaelchen",
+          "relationship": "assigned_to",
+          "target": "authservice"
+        },
+        {
+          "source": "michaelchen",
+          "relationship": "works_on",
+          "target": "apigateway"
+        },
+        {
+          "source": "sramesh",
+          "relationship": "works_on",
+          "target": "authservice"
+        }
+      ],
+      "expected_facts": [
+        "authservice depends_on databasemigration",
+        "michaelchen assigned_to authservice",
+        "michaelchen works_on apigateway",
+        "sramesh works_on authservice"
+      ]
+    },
+    {
+      "id": "multihop-4",
+      "query": "Map the full dependency network for LegalReview",
+      "intent": "general",
+      "start_node_keys": [
+        "legalreview",
+        "priyapatel"
+      ],
+      "expected_relations": [
+        {
+          "source": "legalreview",
+          "relationship": "requires",
+          "target": "legaldocument"
+        },
+        {
+          "source": "legalreview",
+          "relationship": "depends_on",
+          "target": "signoff"
+        },
+        {
+          "source": "priyapatel",
+          "relationship": "works_on",
+          "target": "legalreview"
+        }
+      ],
+      "expected_facts": [
+        "legalreview requires legaldocument",
+        "legalreview depends_on signoff",
+        "priyapatel works_on legalreview"
+      ]
+    },
+    {
+      "id": "multihop-5",
+      "query": "Trace the full deployment chain from urgent app to production",
+      "intent": "blocking",
+      "start_node_keys": [
+        "urgentapp",
+        "deploydashboard",
+        "legalreview"
+      ],
+      "expected_relations": [
+        {
+          "source": "urgentapp",
+          "relationship": "blocked_by",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "urgentapp",
+          "relationship": "depends_on",
+          "target": "signoff"
+        },
+        {
+          "source": "deploydashboard",
+          "relationship": "awaiting",
+          "target": "legalreview"
+        },
+        {
+          "source": "legalreview",
+          "relationship": "requires",
+          "target": "legaldocument"
+        },
+        {
+          "source": "legalreview",
+          "relationship": "depends_on",
+          "target": "signoff"
+        }
+      ],
+      "expected_facts": [
+        "urgentapp blocked_by deploydashboard",
+        "urgentapp depends_on signoff",
+        "deploydashboard awaiting legalreview",
+        "legalreview requires legaldocument",
+        "legalreview depends_on signoff"
+      ]
+    },
+    {
+      "id": "multihop-6",
+      "query": "Full auth ecosystem: who works on it and what do they need?",
+      "intent": "general",
+      "start_node_keys": [
+        "authservice",
+        "apigateway",
+        "oauthservice",
+        "michaelchen",
+        "sramesh"
+      ],
+      "expected_relations": [
+        {
+          "source": "authservice",
+          "relationship": "depends_on",
+          "target": "databasemigration"
+        },
+        {
+          "source": "apigateway",
+          "relationship": "requires",
+          "target": "authservice"
+        },
+        {
+          "source": "apigateway",
+          "relationship": "depends_on",
+          "target": "notificationqueue"
+        },
+        {
+          "source": "oauthservice",
+          "relationship": "depends_on",
+          "target": "authservice"
+        },
+        {
+          "source": "michaelchen",
+          "relationship": "assigned_to",
+          "target": "authservice"
+        },
+        {
+          "source": "michaelchen",
+          "relationship": "works_on",
+          "target": "apigateway"
+        },
+        {
+          "source": "sramesh",
+          "relationship": "works_on",
+          "target": "authservice"
+        }
+      ],
+      "expected_facts": [
+        "authservice depends_on databasemigration",
+        "apigateway requires authservice",
+        "apigateway depends_on notificationqueue",
+        "oauthservice depends_on authservice",
+        "michaelchen assigned_to authservice",
+        "michaelchen works_on apigateway",
+        "sramesh works_on authservice"
+      ]
+    },
+    {
+      "id": "multihop-7",
+      "query": "Person-to-project map for the entire team",
+      "intent": "working_on",
+      "start_node_keys": [
+        "keerthana",
+        "basitiqbal",
+        "sramesh",
+        "samantha",
+        "michaelchen",
+        "priyapatel",
+        "devops"
+      ],
+      "expected_relations": [
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "xconnect"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "slackbot"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "collaborates_on",
+          "target": "projectlibero"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "collaborates_on",
+          "target": "apigateway"
+        },
+        {
+          "source": "basitiqbal",
+          "relationship": "works_on",
+          "target": "projectlibero"
+        },
+        {
+          "source": "basitiqbal",
+          "relationship": "collaborates_on",
+          "target": "xconnect"
+        },
+        {
+          "source": "sramesh",
+          "relationship": "works_on",
+          "target": "projectzephyr"
+        },
+        {
+          "source": "sramesh",
+          "relationship": "works_on",
+          "target": "authservice"
+        },
+        {
+          "source": "sramesh",
+          "relationship": "collaborates_on",
+          "target": "slackbot"
+        },
+        {
+          "source": "samantha",
+          "relationship": "works_on",
+          "target": "urgentapp"
+        },
+        {
+          "source": "samantha",
+          "relationship": "collaborates_on",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "samantha",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        },
+        {
+          "source": "michaelchen",
+          "relationship": "assigned_to",
+          "target": "authservice"
+        },
+        {
+          "source": "michaelchen",
+          "relationship": "works_on",
+          "target": "apigateway"
+        },
+        {
+          "source": "priyapatel",
+          "relationship": "works_on",
+          "target": "legalreview"
+        },
+        {
+          "source": "priyapatel",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        },
+        {
+          "source": "devops",
+          "relationship": "works_on",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "devops",
+          "relationship": "collaborates_on",
+          "target": "databasemigration"
+        }
+      ],
+      "expected_facts": [
+        "keerthana works_on xconnect",
+        "keerthana works_on slackbot",
+        "keerthana collaborates_on projectlibero",
+        "keerthana collaborates_on apigateway",
+        "basitiqbal works_on projectlibero",
+        "basitiqbal collaborates_on xconnect",
+        "sramesh works_on projectzephyr",
+        "sramesh works_on authservice",
+        "sramesh collaborates_on slackbot",
+        "samantha works_on urgentapp",
+        "samantha collaborates_on deploydashboard",
+        "samantha contact_for xconnect",
+        "michaelchen assigned_to authservice",
+        "michaelchen works_on apigateway",
+        "priyapatel works_on legalreview",
+        "priyapatel contact_for xconnect",
+        "devops works_on deploydashboard",
+        "devops collaborates_on databasemigration"
+      ]
+    },
+    {
+      "id": "generic-filter-1",
+      "query": "What is associated with xConnect?",
+      "intent": "general",
+      "start_node_keys": [
+        "xconnect"
+      ],
+      "expected_relations": [
+        {
+          "source": "xconnect",
+          "relationship": "blocked_by",
+          "target": "projectlibero"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "requires",
+          "target": "projectzephyr"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "assigned_to",
+          "target": "keerthana"
+        }
+      ],
+      "expected_facts": [
+        "xconnect blocked_by projectlibero",
+        "xconnect requires projectzephyr",
+        "xconnect assigned_to keerthana"
+      ]
+    },
+    {
+      "id": "generic-filter-2",
+      "query": "What is Keerthana involved in?",
+      "intent": "general",
+      "start_node_keys": [
+        "keerthana"
+      ],
+      "expected_relations": [
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "xconnect"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "slackbot"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "collaborates_on",
+          "target": "projectlibero"
+        }
+      ],
+      "expected_facts": [
+        "keerthana works_on xconnect",
+        "keerthana works_on slackbot",
+        "keerthana collaborates_on projectlibero"
+      ]
+    },
+    {
+      "id": "generic-filter-3",
+      "query": "Show me everything tied to xConnect including loose connections",
+      "intent": "general",
+      "start_node_keys": [
+        "xconnect"
+      ],
+      "expected_relations": [
+        {
+          "source": "xconnect",
+          "relationship": "blocked_by",
+          "target": "projectlibero"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "requires",
+          "target": "projectzephyr"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "assigned_to",
+          "target": "keerthana"
+        }
+      ],
+      "expected_facts": [
+        "xconnect blocked_by projectlibero",
+        "xconnect requires projectzephyr",
+        "xconnect assigned_to keerthana"
+      ]
+    },
+    {
+      "id": "generic-filter-4",
+      "query": "What is Samantha mentioned in?",
+      "intent": "general",
+      "start_node_keys": [
+        "samantha"
+      ],
+      "expected_relations": [
+        {
+          "source": "samantha",
+          "relationship": "works_on",
+          "target": "urgentapp"
+        },
+        {
+          "source": "samantha",
+          "relationship": "collaborates_on",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "samantha",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        }
+      ],
+      "expected_facts": [
+        "samantha works_on urgentapp",
+        "samantha collaborates_on deploydashboard",
+        "samantha contact_for xconnect"
+      ]
+    },
+    {
+      "id": "quality-gate-1",
+      "query": "Is old legacy project connected to xConnect?",
+      "intent": "general",
+      "start_node_keys": [
+        "oldlegacy"
+      ],
+      "expected_relations": [],
+      "expected_facts": []
+    },
+    {
+      "id": "quality-gate-2",
+      "query": "Does stalecontact know Keerthana?",
+      "intent": "who",
+      "start_node_keys": [
+        "stalecontact"
+      ],
+      "expected_relations": [],
+      "expected_facts": []
+    },
+    {
+      "id": "quality-gate-3",
+      "query": "Does genericresource block urgentapp?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "genericresource"
+      ],
+      "expected_relations": [],
+      "expected_facts": []
+    },
+    {
+      "id": "quality-gate-4",
+      "query": "What is stalecontact working on?",
+      "intent": "working_on",
+      "start_node_keys": [
+        "stalecontact"
+      ],
+      "expected_relations": [],
+      "expected_facts": []
+    },
+    {
+      "id": "quality-gate-5",
+      "query": "Who is assigned to genericresource?",
+      "intent": "who",
+      "start_node_keys": [
+        "genericresource"
+      ],
+      "expected_relations": [],
+      "expected_facts": []
+    },
+    {
+      "id": "no-results-1",
+      "query": "What blocks NotificationQueue?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "notificationqueue"
+      ],
+      "expected_relations": [],
+      "expected_facts": []
+    },
+    {
+      "id": "no-results-2",
+      "query": "Who works on SignOff?",
+      "intent": "who",
+      "start_node_keys": [
+        "signoff"
+      ],
+      "expected_relations": [],
+      "expected_facts": []
+    },
+    {
+      "id": "no-results-3",
+      "query": "What is LegalDocument working on?",
+      "intent": "working_on",
+      "start_node_keys": [
+        "legaldocument"
+      ],
+      "expected_relations": [],
+      "expected_facts": []
+    },
+    {
+      "id": "no-results-4",
+      "query": "Find blockers for LegalDocument",
+      "intent": "blocking",
+      "start_node_keys": [
+        "legaldocument"
+      ],
+      "expected_relations": [],
+      "expected_facts": []
+    },
+    {
+      "id": "no-results-5",
+      "query": "Who is assigned to NotificationQueue?",
+      "intent": "who",
+      "start_node_keys": [
+        "notificationqueue"
+      ],
+      "expected_relations": [],
+      "expected_facts": []
+    },
+    {
+      "id": "intent-boost-1",
+      "query": "List blocking dependencies for xConnect",
+      "intent": "blocking",
+      "start_node_keys": [
+        "xconnect"
+      ],
+      "expected_relations": [
+        {
+          "source": "xconnect",
+          "relationship": "blocked_by",
+          "target": "projectlibero"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "requires",
+          "target": "projectzephyr"
+        }
+      ],
+      "expected_facts": [
+        "xconnect blocked_by projectlibero",
+        "xconnect requires projectzephyr"
+      ]
+    },
+    {
+      "id": "intent-boost-2",
+      "query": "Who can I talk to about xConnect?",
+      "intent": "who",
+      "start_node_keys": [
+        "xconnect",
+        "basitiqbal",
+        "priyapatel",
+        "samantha"
+      ],
+      "expected_relations": [
+        {
+          "source": "basitiqbal",
+          "relationship": "collaborates_on",
+          "target": "xconnect"
+        },
+        {
+          "source": "priyapatel",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        },
+        {
+          "source": "samantha",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        }
+      ],
+      "expected_facts": [
+        "basitiqbal collaborates_on xconnect",
+        "priyapatel contact_for xconnect",
+        "samantha contact_for xconnect"
+      ]
+    },
+    {
+      "id": "intent-boost-3",
+      "query": "Find all work items for Keerthana",
+      "intent": "working_on",
+      "start_node_keys": [
+        "keerthana"
+      ],
+      "expected_relations": [
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "xconnect"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "slackbot"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "collaborates_on",
+          "target": "projectlibero"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "collaborates_on",
+          "target": "apigateway"
+        }
+      ],
+      "expected_facts": [
+        "keerthana works_on xconnect",
+        "keerthana works_on slackbot",
+        "keerthana collaborates_on projectlibero",
+        "keerthana collaborates_on apigateway"
+      ]
+    },
+    {
+      "id": "intent-boost-4",
+      "query": "Show me only blocking relationships for urgent app",
+      "intent": "blocking",
+      "start_node_keys": [
+        "urgentapp"
+      ],
+      "expected_relations": [
+        {
+          "source": "urgentapp",
+          "relationship": "blocked_by",
+          "target": "deploydashboard"
+        }
+      ],
+      "expected_facts": [
+        "urgentapp blocked_by deploydashboard"
+      ]
+    },
+    {
+      "id": "edge-density-1",
+      "query": "What is Basit connected to?",
+      "intent": "general",
+      "start_node_keys": [
+        "basitiqbal"
+      ],
+      "expected_relations": [
+        {
+          "source": "basitiqbal",
+          "relationship": "works_on",
+          "target": "projectlibero"
+        },
+        {
+          "source": "basitiqbal",
+          "relationship": "collaborates_on",
+          "target": "xconnect"
+        }
+      ],
+      "expected_facts": [
+        "basitiqbal works_on projectlibero",
+        "basitiqbal collaborates_on xconnect"
+      ]
+    },
+    {
+      "id": "edge-density-2",
+      "query": "What is S Ramesh connected to?",
+      "intent": "general",
+      "start_node_keys": [
+        "sramesh"
+      ],
+      "expected_relations": [
+        {
+          "source": "sramesh",
+          "relationship": "works_on",
+          "target": "projectzephyr"
+        },
+        {
+          "source": "sramesh",
+          "relationship": "works_on",
+          "target": "authservice"
+        },
+        {
+          "source": "sramesh",
+          "relationship": "collaborates_on",
+          "target": "slackbot"
+        }
+      ],
+      "expected_facts": [
+        "sramesh works_on projectzephyr",
+        "sramesh works_on authservice",
+        "sramesh collaborates_on slackbot"
+      ]
+    },
+    {
+      "id": "edge-density-3",
+      "query": "Which nodes have the most connections to xConnect?",
+      "intent": "general",
+      "start_node_keys": [
+        "xconnect",
+        "keerthana",
+        "basitiqbal",
+        "samantha",
+        "priyapatel"
+      ],
+      "expected_relations": [
+        {
+          "source": "xconnect",
+          "relationship": "blocked_by",
+          "target": "projectlibero"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "requires",
+          "target": "projectzephyr"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "assigned_to",
+          "target": "keerthana"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "xconnect"
+        },
+        {
+          "source": "basitiqbal",
+          "relationship": "collaborates_on",
+          "target": "xconnect"
+        },
+        {
+          "source": "priyapatel",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        },
+        {
+          "source": "samantha",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        }
+      ],
+      "expected_facts": [
+        "xconnect blocked_by projectlibero",
+        "xconnect requires projectzephyr",
+        "xconnect assigned_to keerthana",
+        "keerthana works_on xconnect",
+        "basitiqbal collaborates_on xconnect",
+        "priyapatel contact_for xconnect",
+        "samantha contact_for xconnect"
+      ]
+    },
+    {
+      "id": "single-start-multi-out-1",
+      "query": "What does urgent app lead to?",
+      "intent": "general",
+      "start_node_keys": [
+        "urgentapp"
+      ],
+      "expected_relations": [
+        {
+          "source": "urgentapp",
+          "relationship": "blocked_by",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "urgentapp",
+          "relationship": "depends_on",
+          "target": "signoff"
+        }
+      ],
+      "expected_facts": [
+        "urgentapp blocked_by deploydashboard",
+        "urgentapp depends_on signoff"
+      ]
+    },
+    {
+      "id": "single-start-multi-out-2",
+      "query": "What does ProjectLibero connect to?",
+      "intent": "general",
+      "start_node_keys": [
+        "projectlibero"
+      ],
+      "expected_relations": [
+        {
+          "source": "projectlibero",
+          "relationship": "assigned_to",
+          "target": "basitiqbal"
+        }
+      ],
+      "expected_facts": [
+        "projectlibero assigned_to basitiqbal"
+      ]
+    },
+    {
+      "id": "single-start-multi-out-3",
+      "query": "What does Michael Chen connect to?",
+      "intent": "general",
+      "start_node_keys": [
+        "michaelchen"
+      ],
+      "expected_relations": [
+        {
+          "source": "michaelchen",
+          "relationship": "assigned_to",
+          "target": "authservice"
+        },
+        {
+          "source": "michaelchen",
+          "relationship": "works_on",
+          "target": "apigateway"
+        }
+      ],
+      "expected_facts": [
+        "michaelchen assigned_to authservice",
+        "michaelchen works_on apigateway"
+      ]
+    },
+    {
+      "id": "single-start-multi-out-4",
+      "query": "What does Priya connect to?",
+      "intent": "general",
+      "start_node_keys": [
+        "priyapatel"
+      ],
+      "expected_relations": [
+        {
+          "source": "priyapatel",
+          "relationship": "works_on",
+          "target": "legalreview"
+        },
+        {
+          "source": "priyapatel",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        }
+      ],
+      "expected_facts": [
+        "priyapatel works_on legalreview",
+        "priyapatel contact_for xconnect"
+      ]
+    },
+    {
+      "id": "dep-blocking-empty-1",
+      "query": "What requires Keerthana?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "keerthana"
+      ],
+      "expected_relations": [],
+      "expected_facts": []
+    },
+    {
+      "id": "dep-blocking-empty-2",
+      "query": "What depends on SignOff?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "signoff"
+      ],
+      "expected_relations": [],
+      "expected_facts": []
+    },
+    {
+      "id": "dep-blocking-empty-3",
+      "query": "Find blockers for SlackBot",
+      "intent": "blocking",
+      "start_node_keys": [
+        "slackbot"
+      ],
+      "expected_relations": [],
+      "expected_facts": []
+    },
+    {
+      "id": "intent-unboosted-1",
+      "query": "Find blocking items for LegalReview",
+      "intent": "blocking",
+      "start_node_keys": [
+        "legalreview"
+      ],
+      "expected_relations": [
+        {
+          "source": "legalreview",
+          "relationship": "requires",
+          "target": "legaldocument"
+        },
+        {
+          "source": "legalreview",
+          "relationship": "depends_on",
+          "target": "signoff"
+        }
+      ],
+      "expected_facts": [
+        "legalreview requires legaldocument",
+        "legalreview depends_on signoff"
+      ]
+    },
+    {
+      "id": "combined-intent-1",
+      "query": "Map who and what for AuthService",
+      "intent": "general",
+      "start_node_keys": [
+        "authservice",
+        "michaelchen",
+        "sramesh"
+      ],
+      "expected_relations": [
+        {
+          "source": "authservice",
+          "relationship": "depends_on",
+          "target": "databasemigration"
+        },
+        {
+          "source": "michaelchen",
+          "relationship": "assigned_to",
+          "target": "authservice"
+        },
+        {
+          "source": "michaelchen",
+          "relationship": "works_on",
+          "target": "apigateway"
+        },
+        {
+          "source": "sramesh",
+          "relationship": "works_on",
+          "target": "authservice"
+        }
+      ],
+      "expected_facts": [
+        "authservice depends_on databasemigration",
+        "michaelchen assigned_to authservice",
+        "michaelchen works_on apigateway",
+        "sramesh works_on authservice"
+      ]
+    },
+    {
+      "id": "combined-intent-2",
+      "query": "Full picture of DeployDashboard: blockers and people",
+      "intent": "general",
+      "start_node_keys": [
+        "deploydashboard",
+        "legalreview",
+        "samantha",
+        "devops"
+      ],
+      "expected_relations": [
+        {
+          "source": "deploydashboard",
+          "relationship": "awaiting",
+          "target": "legalreview"
+        },
+        {
+          "source": "legalreview",
+          "relationship": "requires",
+          "target": "legaldocument"
+        },
+        {
+          "source": "legalreview",
+          "relationship": "depends_on",
+          "target": "signoff"
+        },
+        {
+          "source": "samantha",
+          "relationship": "collaborates_on",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "devops",
+          "relationship": "works_on",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "devops",
+          "relationship": "collaborates_on",
+          "target": "databasemigration"
+        }
+      ],
+      "expected_facts": [
+        "deploydashboard awaiting legalreview",
+        "legalreview requires legaldocument",
+        "legalreview depends_on signoff",
+        "samantha collaborates_on deploydashboard",
+        "devops works_on deploydashboard",
+        "devops collaborates_on databasemigration"
+      ]
+    },
+    {
+      "id": "combined-intent-3",
+      "query": "Tell me everything about ProjectLibero",
+      "intent": "general",
+      "start_node_keys": [
+        "projectlibero",
+        "basitiqbal",
+        "keerthana"
+      ],
+      "expected_relations": [
+        {
+          "source": "projectlibero",
+          "relationship": "assigned_to",
+          "target": "basitiqbal"
+        },
+        {
+          "source": "basitiqbal",
+          "relationship": "works_on",
+          "target": "projectlibero"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "collaborates_on",
+          "target": "projectlibero"
+        }
+      ],
+      "expected_facts": [
+        "projectlibero assigned_to basitiqbal",
+        "basitiqbal works_on projectlibero",
+        "keerthana collaborates_on projectlibero"
+      ]
+    },
+    {
+      "id": "expired-check-1",
+      "query": "Find expired edges from xConnect",
+      "intent": "general",
+      "start_node_keys": [
+        "xconnect"
+      ],
+      "expected_relations": [
+        {
+          "source": "xconnect",
+          "relationship": "blocked_by",
+          "target": "projectlibero"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "requires",
+          "target": "projectzephyr"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "assigned_to",
+          "target": "keerthana"
+        }
+      ],
+      "expected_facts": [
+        "xconnect blocked_by projectlibero",
+        "xconnect requires projectzephyr",
+        "xconnect assigned_to keerthana"
+      ]
+    },
+    {
+      "id": "cross-domain-1",
+      "query": "Who is blocking xConnect and what are they working on?",
+      "intent": "blocking",
+      "start_node_keys": [
+        "xconnect"
+      ],
+      "expected_relations": [
+        {
+          "source": "xconnect",
+          "relationship": "blocked_by",
+          "target": "projectlibero"
+        }
+      ],
+      "expected_facts": [
+        "xconnect blocked_by projectlibero"
+      ]
+    },
+    {
+      "id": "cross-domain-2",
+      "query": "Find all person-to-project connections for the auth stack",
+      "intent": "who",
+      "start_node_keys": [
+        "authservice",
+        "apigateway",
+        "michaelchen",
+        "sramesh"
+      ],
+      "expected_relations": [
+        {
+          "source": "michaelchen",
+          "relationship": "assigned_to",
+          "target": "authservice"
+        },
+        {
+          "source": "michaelchen",
+          "relationship": "works_on",
+          "target": "apigateway"
+        },
+        {
+          "source": "sramesh",
+          "relationship": "works_on",
+          "target": "authservice"
+        }
+      ],
+      "expected_facts": [
+        "michaelchen assigned_to authservice",
+        "michaelchen works_on apigateway",
+        "sramesh works_on authservice"
+      ]
+    },
+    {
+      "id": "cross-domain-3",
+      "query": "Who's connected to the legal review project?",
+      "intent": "who",
+      "start_node_keys": [
+        "legalreview",
+        "priyapatel"
+      ],
+      "expected_relations": [
+        {
+          "source": "priyapatel",
+          "relationship": "works_on",
+          "target": "legalreview"
+        }
+      ],
+      "expected_facts": [
+        "priyapatel works_on legalreview"
+      ]
+    },
+    {
+      "id": "cross-domain-4",
+      "query": "Map all blockers and assignees for projects Keerthana works on",
+      "intent": "general",
+      "start_node_keys": [
+        "keerthana",
+        "xconnect",
+        "slackbot",
+        "projectlibero",
+        "apigateway"
+      ],
+      "expected_relations": [
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "xconnect"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "slackbot"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "collaborates_on",
+          "target": "projectlibero"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "collaborates_on",
+          "target": "apigateway"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "blocked_by",
+          "target": "projectlibero"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "requires",
+          "target": "projectzephyr"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "assigned_to",
+          "target": "keerthana"
+        }
+      ],
+      "expected_facts": [
+        "keerthana works_on xconnect",
+        "keerthana works_on slackbot",
+        "keerthana collaborates_on projectlibero",
+        "keerthana collaborates_on apigateway",
+        "xconnect blocked_by projectlibero",
+        "xconnect requires projectzephyr",
+        "xconnect assigned_to keerthana"
+      ]
+    },
+    {
+      "id": "multi-intent-1",
+      "query": "Show me blockers for all services Keerthana works on",
+      "intent": "blocking",
+      "start_node_keys": [
+        "keerthana",
+        "xconnect",
+        "slackbot",
+        "apigateway"
+      ],
+      "expected_relations": [
+        {
+          "source": "xconnect",
+          "relationship": "blocked_by",
+          "target": "projectlibero"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "requires",
+          "target": "projectzephyr"
+        },
+        {
+          "source": "apigateway",
+          "relationship": "requires",
+          "target": "authservice"
+        },
+        {
+          "source": "apigateway",
+          "relationship": "depends_on",
+          "target": "notificationqueue"
+        }
+      ],
+      "expected_facts": [
+        "xconnect blocked_by projectlibero",
+        "xconnect requires projectzephyr",
+        "apigateway requires authservice",
+        "apigateway depends_on notificationqueue"
+      ]
+    },
+    {
+      "id": "multi-intent-2",
+      "query": "Find people, blockers, and dependencies for the entire project portfolio",
+      "intent": "general",
+      "start_node_keys": [
+        "xconnect",
+        "projectlibero",
+        "projectzephyr",
+        "urgentapp",
+        "deploydashboard",
+        "legalreview",
+        "authservice",
+        "apigateway"
+      ],
+      "expected_relations": [
+        {
+          "source": "xconnect",
+          "relationship": "blocked_by",
+          "target": "projectlibero"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "requires",
+          "target": "projectzephyr"
+        },
+        {
+          "source": "xconnect",
+          "relationship": "assigned_to",
+          "target": "keerthana"
+        },
+        {
+          "source": "urgentapp",
+          "relationship": "blocked_by",
+          "target": "deploydashboard"
+        },
+        {
+          "source": "urgentapp",
+          "relationship": "depends_on",
+          "target": "signoff"
+        },
+        {
+          "source": "deploydashboard",
+          "relationship": "awaiting",
+          "target": "legalreview"
+        },
+        {
+          "source": "legalreview",
+          "relationship": "requires",
+          "target": "legaldocument"
+        },
+        {
+          "source": "legalreview",
+          "relationship": "depends_on",
+          "target": "signoff"
+        },
+        {
+          "source": "authservice",
+          "relationship": "depends_on",
+          "target": "databasemigration"
+        },
+        {
+          "source": "apigateway",
+          "relationship": "requires",
+          "target": "authservice"
+        },
+        {
+          "source": "apigateway",
+          "relationship": "depends_on",
+          "target": "notificationqueue"
+        },
+        {
+          "source": "projectlibero",
+          "relationship": "assigned_to",
+          "target": "basitiqbal"
+        },
+        {
+          "source": "projectzephyr",
+          "relationship": "requires",
+          "target": "databasemigration"
+        }
+      ],
+      "expected_facts": [
+        "xconnect blocked_by projectlibero",
+        "xconnect requires projectzephyr",
+        "xconnect assigned_to keerthana",
+        "urgentapp blocked_by deploydashboard",
+        "urgentapp depends_on signoff",
+        "deploydashboard awaiting legalreview",
+        "legalreview requires legaldocument",
+        "legalreview depends_on signoff",
+        "authservice depends_on databasemigration",
+        "apigateway requires authservice",
+        "apigateway depends_on notificationqueue",
+        "projectlibero assigned_to basitiqbal",
+        "projectzephyr requires databasemigration"
+      ]
+    },
+    {
+      "id": "query-phrasing-1",
+      "query": "xconnect blockers",
+      "intent": "blocking",
+      "start_node_keys": [
+        "xconnect"
+      ],
+      "expected_relations": [
+        {
+          "source": "xconnect",
+          "relationship": "blocked_by",
+          "target": "projectlibero"
+        }
+      ],
+      "expected_facts": [
+        "xconnect blocked_by projectlibero"
+      ]
+    },
+    {
+      "id": "query-phrasing-2",
+      "query": "blocking xconnect",
+      "intent": "blocking",
+      "start_node_keys": [
+        "xconnect"
+      ],
+      "expected_relations": [
+        {
+          "source": "xconnect",
+          "relationship": "blocked_by",
+          "target": "projectlibero"
+        }
+      ],
+      "expected_facts": [
+        "xconnect blocked_by projectlibero"
+      ]
+    },
+    {
+      "id": "query-phrasing-3",
+      "query": "what's blocking xconnect",
+      "intent": "blocking",
+      "start_node_keys": [
+        "xconnect"
+      ],
+      "expected_relations": [
+        {
+          "source": "xconnect",
+          "relationship": "blocked_by",
+          "target": "projectlibero"
+        }
+      ],
+      "expected_facts": [
+        "xconnect blocked_by projectlibero"
+      ]
+    },
+    {
+      "id": "query-phrasing-4",
+      "query": "who works on project zephyr",
+      "intent": "who",
+      "start_node_keys": [
+        "projectzephyr",
+        "sramesh"
+      ],
+      "expected_relations": [
+        {
+          "source": "sramesh",
+          "relationship": "works_on",
+          "target": "projectzephyr"
+        }
+      ],
+      "expected_facts": [
+        "sramesh works_on projectzephyr"
+      ]
+    },
+    {
+      "id": "query-phrasing-5",
+      "query": "keerthana tasks",
+      "intent": "working_on",
+      "start_node_keys": [
+        "keerthana"
+      ],
+      "expected_relations": [
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "xconnect"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "works_on",
+          "target": "slackbot"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "collaborates_on",
+          "target": "projectlibero"
+        },
+        {
+          "source": "keerthana",
+          "relationship": "collaborates_on",
+          "target": "apigateway"
+        }
+      ],
+      "expected_facts": [
+        "keerthana works_on xconnect",
+        "keerthana works_on slackbot",
+        "keerthana collaborates_on projectlibero",
+        "keerthana collaborates_on apigateway"
+      ]
+    },
+    {
+      "id": "query-phrasing-6",
+      "query": "s ramesh projects",
+      "intent": "working_on",
+      "start_node_keys": [
+        "sramesh"
+      ],
+      "expected_relations": [
+        {
+          "source": "sramesh",
+          "relationship": "works_on",
+          "target": "projectzephyr"
+        },
+        {
+          "source": "sramesh",
+          "relationship": "works_on",
+          "target": "authservice"
+        },
+        {
+          "source": "sramesh",
+          "relationship": "collaborates_on",
+          "target": "slackbot"
+        }
+      ],
+      "expected_facts": [
+        "sramesh works_on projectzephyr",
+        "sramesh works_on authservice",
+        "sramesh collaborates_on slackbot"
+      ]
+    },
+    {
+      "id": "query-phrasing-7",
+      "query": "what does basit do",
+      "intent": "working_on",
+      "start_node_keys": [
+        "basitiqbal"
+      ],
+      "expected_relations": [
+        {
+          "source": "basitiqbal",
+          "relationship": "works_on",
+          "target": "projectlibero"
+        },
+        {
+          "source": "basitiqbal",
+          "relationship": "collaborates_on",
+          "target": "xconnect"
+        }
+      ],
+      "expected_facts": [
+        "basitiqbal works_on projectlibero",
+        "basitiqbal collaborates_on xconnect"
+      ]
+    },
+    {
+      "id": "query-phrasing-8",
+      "query": "michael chen assignments",
+      "intent": "working_on",
+      "start_node_keys": [
+        "michaelchen"
+      ],
+      "expected_relations": [
+        {
+          "source": "michaelchen",
+          "relationship": "assigned_to",
+          "target": "authservice"
+        },
+        {
+          "source": "michaelchen",
+          "relationship": "works_on",
+          "target": "apigateway"
+        }
+      ],
+      "expected_facts": [
+        "michaelchen assigned_to authservice",
+        "michaelchen works_on apigateway"
+      ]
+    },
+    {
+      "id": "query-phrasing-9",
+      "query": "contact for xconnect",
+      "intent": "who",
+      "start_node_keys": [
+        "xconnect",
+        "priyapatel",
+        "samantha"
+      ],
+      "expected_relations": [
+        {
+          "source": "priyapatel",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        },
+        {
+          "source": "samantha",
+          "relationship": "contact_for",
+          "target": "xconnect"
+        }
+      ],
+      "expected_facts": [
+        "priyapatel contact_for xconnect",
+        "samantha contact_for xconnect"
+      ]
+    },
+    {
+      "id": "query-phrasing-10",
+      "query": "dependencies for auth",
+      "intent": "blocking",
+      "start_node_keys": [
+        "authservice"
+      ],
+      "expected_relations": [
+        {
+          "source": "authservice",
+          "relationship": "depends_on",
+          "target": "databasemigration"
+        }
+      ],
+      "expected_facts": [
+        "authservice depends_on databasemigration"
+      ]
+    }
+  ]
+}

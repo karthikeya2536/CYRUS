@@ -40,10 +40,10 @@ const workerLog = createLogger("llm-worker", "worker");
 const MAX_JOBS_PER_BATCH = 50;
 
 const GRAPH_STOP_ENTITIES = new Set([
-  "user", "users", "person", "people", "professional", "speaker", "individual", 
-  "contact", "email", "document", "resource", "project", "task", "event", 
-  "meeting", "communication", "communication_thread", "platform", "organization", 
-  "company", "group", "role", "domain", "technology", "skill", "date", 
+  "user", "users", "person", "people", "professional", "speaker", "individual",
+  "contact", "email", "document", "resource", "project", "task", "event",
+  "meeting", "communication", "communication_thread", "platform", "organization",
+  "company", "group", "role", "domain", "technology", "skill", "date",
   "artifact", "location", "application", "process"
 ]);
 
@@ -54,7 +54,7 @@ export function normalizeKey(key: string): string {
 async function sha256(message: string) {
   const msgUint8 = new TextEncoder().encode(message.toLowerCase());
   const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
-  return new TextDecoder().decode(encode(new Uint8Array(hashBuffer)));
+  return new TextDecoder().decode(new Uint8Array(hashBuffer));
 }
 
 function formatDate(dateString: string) {
@@ -134,7 +134,7 @@ function ruleBasedBriefing(emails: any[], events: any[]) {
 
 async function processMemoryExtraction(job: any) {
   const user_id = job.user_id;
-  
+
   const { data: emails, error: emailsError } = await supabaseAdmin.from("emails").select("*").eq("user_id", user_id).order("received_at", { ascending: false }).limit(10);
   if (emailsError) throw emailsError;
   // Only near-term events feed memory extraction. Without an upper bound,
@@ -178,7 +178,8 @@ async function processMemoryExtraction(job: any) {
   const extractResult = await LLMRouter.execute({
     systemPrompt: PROMPTS.MEMORY_EXTRACTION_SYSTEM,
     userPrompt: `Emails:\n${emailPayload}\n\nEvents:\n${eventPayload}\n\nSlack Messages:\n${slackPayload}\n\nNotion Pages:\n${notionPayload}`,
-    expectedFormat: 'json'
+    expectedFormat: 'json',
+    capability: 'reasoning'
   });
 
   extractorProvider = extractResult.provider;
@@ -213,7 +214,7 @@ async function processMemoryExtraction(job: any) {
     const finalExpiresAt = computeExpiresAt(mem, eventById);
     const finalDeadlineAt = computeDeadlineAt(mem, eventById);
     let finalLlmImportance = mem.llm_importance !== undefined ? mem.llm_importance : 0.5;
-    
+
     let finalSystemImportance = mem.system_importance !== undefined ? mem.system_importance : 0.5;
     if (mem.system_importance === undefined && extractorProvider !== 'rule-engine') {
       if (mem.category === 'deadline' || mem.category === 'commitment') finalSystemImportance = 0.9;
@@ -227,8 +228,9 @@ async function processMemoryExtraction(job: any) {
       const verifyResult = await LLMRouter.execute({
         systemPrompt: PROMPTS.MEMORY_VERIFICATION_SYSTEM,
         userPrompt: `Source ID: ${mem.source_id}\nSource Excerpt: ${mem.source_excerpt}\nExtracted Memory: ${JSON.stringify(mem, null, 2)}`,
-        expectedFormat: 'json'
-      }, [extractorProvider]);
+        expectedFormat: 'json',
+        capability: 'verification'
+      });
 
       verifierProvider = verifyResult.provider;
 
@@ -252,8 +254,9 @@ async function processMemoryExtraction(job: any) {
             const tieResult = await LLMRouter.execute({
               systemPrompt: PROMPTS.MEMORY_TIEBREAKER_SYSTEM,
               userPrompt: `Source Excerpt: ${mem.source_excerpt}\nExtracted: ${JSON.stringify(mem)}\nVerifier Reasoning: ${vData.reasoning}`,
-              expectedFormat: 'json'
-            }, [extractorProvider, verifierProvider]);
+              expectedFormat: 'json',
+              capability: 'verification'
+            });
 
             const tbProvider = tieResult.provider;
             verifierProvider = `${verifierProvider} + ${tbProvider} (TB)`;
@@ -310,7 +313,7 @@ async function processMemoryExtraction(job: any) {
 
     if (finalDecision === 'APPROVE' || finalDecision === 'MODIFIED') {
       const isOnlyName = /^[A-Z][a-z]+(\s[A-Z][a-z]+)+$/.test(finalContent.trim());
-      
+
       if (
         finalContent.length < 8 ||
         isOnlyName ||
@@ -399,6 +402,7 @@ async function processMemoryExtraction(job: any) {
                 systemPrompt: PROMPTS.MEMORY_DEDUP_SYSTEM,
                 userPrompt: `Category: ${mem.category}\nExisting memory: "${top.content}"\nNew candidate: "${finalContent}"`,
                 expectedFormat: "json",
+                capability: 'reasoning'
               });
               adjudicator = adj.provider;
               if (adj.provider === "rule-engine") {
@@ -546,13 +550,14 @@ async function processGraphConstruction(job: any) {
   const result = await LLMRouter.execute({
     systemPrompt: PROMPTS.GRAPH_EXTRACTION_SYSTEM,
     userPrompt: `Memory Content: ${content}`,
-    expectedFormat: "json"
+    expectedFormat: "json",
+    capability: 'information_extraction'
   });
 
   let graphData;
   try {
     let jsonStr = result.content;
-    const match = jsonStr.match(/\\{.*\\}/s);
+    const match = jsonStr.match(/\{.*\}/s);
     if (match) jsonStr = match[0];
     graphData = JSON.parse(jsonStr);
   } catch (e) {
@@ -574,7 +579,7 @@ async function processGraphConstruction(job: any) {
       { user_id: job.user_id, node_key: nodeKey, node_type: node.type, is_stop_entity: isStopEntity },
       { onConflict: "user_id,node_key" }
     ).select("id").single();
-    
+
     if (nData) {
       nodesCreated++;
       touchedNodeIds.add(nData.id);
@@ -582,7 +587,7 @@ async function processGraphConstruction(job: any) {
         { node_id: nData.id, memory_id },
         { onConflict: "node_id,memory_id" }
       );
-      
+
       if (node.original_id) {
         const originalKey = normalizeKey(node.original_id);
         if (originalKey !== nodeKey) {
@@ -600,7 +605,7 @@ async function processGraphConstruction(job: any) {
 
   for (const edge of edges) {
     if (!edge.source || !edge.target || !edge.relationship || edge.confidence < 0.30) continue;
-    
+
     // Resolve nodes
     const srcKey = normalizeKey(edge.source);
     const tgtKey = normalizeKey(edge.target);
@@ -611,10 +616,10 @@ async function processGraphConstruction(job: any) {
       touchedNodeIds.add(srcNode.id);
       touchedNodeIds.add(tgtNode.id);
       const { data: edgeData } = await supabaseAdmin.from("graph_edges").upsert(
-        { 
-          user_id: job.user_id, 
-          source_node_id: srcNode.id, 
-          target_node_id: tgtNode.id, 
+        {
+          user_id: job.user_id,
+          source_node_id: srcNode.id,
+          target_node_id: tgtNode.id,
           relationship_type: edge.relationship,
           confidence: edge.confidence,
           expires_at: expires_at,
@@ -721,7 +726,8 @@ async function processBriefingGeneration(job: any) {
   // CACHE BUSTER: fix date grounding format for LLM
   const draftResult = await LLMRouter.execute({
     systemPrompt: PROMPTS.BRIEFING_DRAFT_SYSTEM,
-    userPrompt: `Today's Date: ${now.split('T')[0]}\nCurrent Time: ${now}\n\nEmails:\n${emailPayload}\n\nEvents:\n${eventPayload}\n\nSlack Messages:\n${slackPayload}\n\nNotion Pages:\n${notionPayload}\n\nMemories:\n${memoryPayload}`
+    userPrompt: `Today's Date: ${now.split('T')[0]}\nCurrent Time: ${now}\n\nEmails:\n${emailPayload}\n\nEvents:\n${eventPayload}\n\nSlack Messages:\n${slackPayload}\n\nNotion Pages:\n${notionPayload}\n\nMemories:\n${memoryPayload}`,
+    capability: 'summarization'
   });
 
   generatorProvider = draftResult.provider;
@@ -733,8 +739,9 @@ async function processBriefingGeneration(job: any) {
     const verifyResult = await LLMRouter.execute({
       systemPrompt: PROMPTS.BRIEFING_VERIFICATION_SYSTEM,
       userPrompt: `Draft Briefing:\n${draftResult.content}\n\nChecklist Review!`,
-      expectedFormat: 'json'
-    }, [generatorProvider]);
+      expectedFormat: 'json',
+      capability: 'verification'
+    });
 
     verifierProvider = verifyResult.provider;
     generation_metadata.latency.verification = verifyResult.latencyMs;
@@ -747,7 +754,7 @@ async function processBriefingGeneration(job: any) {
         const match = vStr.match(/\{.*\}/s);
         if (match) vStr = match[0];
         const vData = JSON.parse(vStr);
-        
+
         generation_metadata.checklist = vData.checklist;
         finalBriefing = vData.final_briefing_markdown || draftResult.content;
       } catch (e) {
@@ -876,7 +883,7 @@ serve(async (req: Request) => {
             job_id: updatedJob.id,
             user_id: updatedJob.user_id,
           });
-          
+
           try {
             let resultData = null;
             if (updatedJob.job_type === "memory_extraction") {

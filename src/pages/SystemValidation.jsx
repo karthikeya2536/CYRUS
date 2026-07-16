@@ -125,7 +125,7 @@ const SystemValidation = () => {
             />
 
             <TestCard
-              name="Test 2-4: Provider Failover Chain"
+              name="Test 2-4: OmniRoute Provider Connectivity"
               status={testResults.summary.tests.test2to4_ProviderFailover}
               details={testResults.detailed_results.test2to4_ProviderFailover}
             />

@@ -58,9 +58,9 @@ deterministically.
   (`022_schedule_llm_worker.sql`) with the reclaim → claim → retry → dead-letter invariants.
 - RLS everywhere (`auth.uid() = user_id`); edge functions use service-role (`supabaseAdmin`)
   and must filter `user_id` explicitly.
-- `LLMRouter.execute()` (`_shared/llm-router.ts`): circuit breaker + `rule-engine` sentinel
-  → deterministic fallback required for every inference path.
-- Embeddings `vector(768)` via Gemini `text-embedding-004` (`llm-worker:483-499`).
+- `LLMRouter.execute()` (`_shared/llm-router.ts`): uses OmniRoute as the sole AI gateway,
+  eliminating provider-specific logic and model selection.
+- Embeddings `vector(768)` via OmniRoute embedding model.
 
 ### Adjacent designs consumed (cross-reference by filename)
 
@@ -147,7 +147,7 @@ It is never a raw memory; it is always compound.
 | `confidence` | DOUBLE PRECISION NOT NULL DEFAULT 0 | 0-1, propagated from source evidence (§8) |
 | `severity` | DOUBLE PRECISION | 0-1, how consequential (for blocker/risk types — derived from deadlines, dependencies, graph position) |
 | `derivation_rule` | TEXT | named rule that produced this fact (e.g. `transitive_dependency_blocked`, `inferred_status_from_edges`, `llm_inference`) |
-| `derived_by` | TEXT | `rule-engine` \| `gemini-3.1-flash-lite` \| `gpt-oss-120b` \| ... — mirrors `memory_records.llm_provider` |
+| `derived_by` | TEXT | `omniroute` — indicates the LLM used via OmniRoute abstraction |
 | `evidence_hash` | TEXT | hash of `(source_memory_ids + source_edge_ids + version)` for fast staleness check |
 | `valid_from` | TIMESTAMPTZ | when the fact became true |
 | `valid_until` | TIMESTAMPTZ | NULL if currently true; set when superseded/refuted |
@@ -318,7 +318,7 @@ claim knowledge_inference job
      │  - missing dependency                             │
      │      (project has owner but no deadline;          │
      │       commitment has no assigned person;          │
-     │       expected reply not received)               │
+       expected reply not received)               │
      │  - relationship inference (transitivity)          │
      │  output: derived facts (rule provenance)          │
      ├──────────────────────────────────────────────────┤
@@ -441,13 +441,13 @@ current state was entered, enabling "project has been blocked for 12 days" trend
 ### 7.1 Project health rollup
 
 ```
-health = W_TASKS × task_completion_ratio
-       + W_BLOCKERS × (1 - max_blocker_severity/1.17)
-       + W_DEADLINE × deadline_health
-       + W_ACTIVITY × activity_health
+  health = W_TASKS × task_completion_ratio
+         + W_BLOCKERS × (1 - max_blocker_severity/1.17)
+         + W_DEADLINE × deadline_health
+         + W_ACTIVITY × activity_health
 
-Defaults (tunable via env):
-  W_TASKS=0.30, W_BLOCKERS=0.35, W_DEADLINE=0.20, W_ACTIVITY=0.15
+  Defaults (tunable via env):
+    W_TASKS=0.30, W_BLOCKERS=0.35, W_DEADLINE=0.20, W_ACTIVITY=0.15
 ```
 
 | Component | Computation |
@@ -610,7 +610,7 @@ engine's output. The engine exposes structured data via:
 
 | Failure mode | Response |
 |---|---|
-| LLM inference down (`rule-engine` sentinel) | Stage 3 is skipped entirely; Stage 2 rule-based derivations are sufficient for all 10 requirement types. No derived fact is LLM-only — rules are the floor. |
+| LLM inference down (OmniRoute unavailable or `rule-engine` sentinel) | Stage 3 is skipped entirely; Stage 2 rule-based derivations are sufficient for all 10 requirement types. No derived fact is LLM-only — rules are the floor. |
 | Partial graph (graph_construction not yet run for a subject) | Gathered subgraph is empty → rule-based derivations work on memories alone (weaker but functional). Derived facts flagged `derived_by='rule-engine'`, confidence lower. |
 | Stale derived facts (source memories expired) | Confidence recalculated (§8.3). If below floor, fact retracted. A sweep job detects and re-infers. |
 | Inference run timeout (>55s cron limit) | Worker's `MAX_JOBS_PER_RUN` chunks by subject. Partial run → partial results committed. Remaining subjects re-enqueued. |
@@ -725,7 +725,7 @@ Assert:
 |---|---|---|---|
 | Inference trigger | **Async via llm_jobs** | Inline at extraction or DB trigger | LLM work must be async per central pattern; Postgres triggers can't call LLMs in-txn. Cost: eventual consistency (seconds–minutes). |
 | Derivation floor | **Rules always; LLM optional** | LLM-only, or rules-only | Deterministic baseline for all 10 requirement types; LLM enriches but never blocks. Matches existing rule-engine fallback pattern. |
-| Derived fact identity | **fact_key on (statement+subject+type)** | Sequence/PK only | Enables idempotent upsert; no duplicates across inference runs. |
+| Derived fact identity | **fact_key on (statement+subject+type)** | Sequence/PK only | EnKG enabled upsert; no duplicates across inference runs. |
 | Confidence model | **Min-of-sources × rule-multiplier** | Product/bayesian | Simple, interpretable, conservative. Product-of-probs decays too fast for deep chains. |
 | State machine | **Deterministic rules + LLM annotation** | Pure LLM state inference | States are verifiable from graph structure; LLM adds summary but not decision authority. |
 | Where derived facts rank | **Same ranker formula, fact-type nudge** | Separate ranking pipeline | Additive, flag-reversible, no weight retuning. |

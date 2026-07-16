@@ -1,0 +1,38 @@
+{
+  "config": {
+    "pattern": "constant",
+    "concurrency": 1,
+    "durationSeconds": 10,
+    "patternName": "constant"
+  },
+  "summary": {
+    "startTime": "2026-07-16T08:31:27.657Z",
+    "endTime": "2026-07-16T08:31:39.766Z",
+    "durationSeconds": 12,
+    "totalRequests": 73,
+    "totalErrors": 73,
+    "errorRate": 100,
+    "requestsPerSecond": 6.03,
+    "averageLatencyMs": 2.73,
+    "p50": 2.19760000000133,
+    "p95": 4.808799999999792,
+    "p99": 17.675399999999996,
+    "p50LatencyMs": 2.2,
+    "p95LatencyMs": 4.81,
+    "p99LatencyMs": 17.68
+  },
+  "endpoints": {
+    "/functions/v1/retrieve-context": 0,
+    "/functions/v1/gmail-sync": 21,
+    "/functions/v1/calendar-sync": 13,
+    "/functions/v1/llm-worker": 15,
+    "/functions/v1/generate-briefing": 24
+  },
+  "statusCodes": {
+    "0": 73
+  },
+  "concurrentUsers": {
+    "target": 1,
+    "maxObserved": 0
+  }
+}
